@@ -1,0 +1,291 @@
+# HekaBot — WhatsApp Bot
+
+Bot WhatsApp berbasis **Baileys**, koneksi via **Pairing Code**, dengan menu Downloader & Tools sesuai desain kamu.
+
+## 1. Persiapan
+
+Wajib ada di komputer/VPS kamu:
+- **Node.js v18+** → cek dengan `node -v`
+- **ffmpeg** (untuk fitur `tomp3`, `tovn`, `cutmp3`, dan dipakai `yt-dlp` untuk convert ke mp3)
+
+  Pilih salah satu cara:
+  1. **Via package manager**: Ubuntu/Debian `sudo apt install ffmpeg -y`, Termux `pkg install ffmpeg`
+  2. **Tanpa install ke sistem** (paling gampang di Windows): download dari https://www.gyan.dev/ffmpeg/builds/ (pilih **"release essentials"**), extract file zip-nya, lalu copy **`ffmpeg.exe`** DAN **`ffprobe.exe`** (ada di folder `bin` hasil extract) ke folder `bin/` di dalam project ini. Bot otomatis mendeteksi keduanya duluan sebelum coba cari di PATH sistem.
+- **yt-dlp** (untuk fitur `ytmp3`, `ytmp4`, `play`, `play2`, `ytfull`, `yttranscript` — ini dipakai supaya fitur YouTube **tidak bergantung pada API pihak ketiga yang sering berubah/rusak**)
+
+  Pilih salah satu cara:
+  1. **Via pip** (kalau sudah ada Python): `pip install yt-dlp`, lalu **tutup & buka ulang terminal** (PATH baru kebaca setelah restart terminal). Cek: `yt-dlp --version`
+  2. **Tanpa Python** (paling gampang di Windows): download `yt-dlp.exe` dari https://github.com/yt-dlp/yt-dlp/releases/latest, lalu taruh filenya di `bin/yt-dlp.exe` di dalam folder project ini. Bot otomatis mendeteksi file itu duluan sebelum coba cari di PATH sistem — jadi gak perlu utak-atik Environment Variables Windows sama sekali.
+
+- **Real-ESRGAN** (untuk fitur `hdr`, `hdrv2`, `hdrv3` — upscale/HD gambar pakai AI, **jalan lokal, tanpa API luar**)
+  1. Download dari https://github.com/xinntao/Real-ESRGAN-ncnn-vulkan/releases (pilih file `-windows.zip`)
+  2. Extract **semua isinya** (exe + folder `models` + file lain di sebelahnya) ke folder `bin/` di project ini — jangan cuma exe-nya doang, folder `models` **wajib** ikut ke-copy di folder yang sama
+  3. Hasil akhirnya: `bin/realesrgan-ncnn-vulkan.exe` dan `bin/models/` ada di folder yang sama
+
+- **LibreOffice** (untuk fitur `topdf` khusus dokumen office seperti docx/xlsx/pptx → pdf, **jalan lokal, tanpa API luar**)
+  - Ubuntu/Debian/VPS: `sudo apt install -y libreoffice`
+  - Windows: download & install dari https://www.libreoffice.org/download/download-libreoffice/ (pilih tombol "Download" besar, installer biasa next-next-finish). **Gak perlu edit PATH** — bot otomatis nyari di lokasi instalasi default (`C:\Program Files\LibreOffice\program\soffice.exe`)
+
+- **Python 3 + Poppler + beberapa library** (untuk fitur `todocx`, `toexcel`, `topptx` — convert PDF ke Word/Excel/PowerPoint, **jalan lokal, tanpa API luar**)
+  - Ubuntu/Debian/VPS: `sudo apt install -y python3 python3-pip poppler-utils`
+  - Windows:
+    1. Install Python dari https://www.python.org/downloads/ (**wajib centang "Add python.exe to PATH"** saat instalasi)
+    2. Download poppler dari https://github.com/oschwartz10612/poppler-windows/releases (ambil file `Release-xx.xx.x-0.zip`)
+    3. Extract, lalu **copy folder `Library\bin`-nya (isinya, bukan foldernya)** ke `bin\poppler\` di dalam project ini — jadi hasilnya ada file-file kayak `bin\poppler\pdftoppm.exe`. Sama kayak pola ffmpeg/yt-dlp di bot ini: **gak perlu edit PATH sistem**, bot otomatis nemu dari situ duluan
+  - Lanjut di semua OS: `pip3 install --break-system-packages pdf2docx pdf2image python-pptx openpyxl pdfplumber` (di Windows, pakai `py -m pip install pdf2docx pdf2image python-pptx openpyxl pdfplumber` — lebih tahan banting daripada `pip install` polos, apalagi kalau command `python`/`pip` masih ke-alias sama Microsoft Store)
+
+## 2. Install
+
+```bash
+cd hekabot
+npm install
+```
+
+## 3. Konfigurasi
+
+Buka `config.js`, isi:
+- `ownerNumber`, `ownerName`, `instagram` → sudah kuisi sesuai identitas HekaBot kamu
+- `prefix` → default `.` (bisa diganti string kosong `""` kalau mau tanpa prefix)
+
+## 4. Jalankan & Scan QR
+
+```bash
+npm start
+```
+
+- Akan muncul **QR code** di terminal.
+- Buka WhatsApp di HP → **Perangkat Tertaut** → **Tautkan Perangkat** → scan QR tersebut.
+- Setelah berhasil, session tersimpan otomatis di folder `session/` — kamu tidak perlu scan ulang selama folder itu tidak dihapus.
+- QR code hanya berlaku ±20 detik. Kalau keburu hilang sebelum sempat di-scan, tunggu saja — bot otomatis generate QR baru.
+
+## 5. Coba fitur
+
+Kirim ke bot:
+```
+menu
+```
+untuk melihat semua fitur. Command lain dipanggil dengan prefix, contoh:
+```
+.ytmp3 https://youtube.com/watch?v=xxxxx
+.kalkukator 25*4+10
+.removebg   (reply sebuah foto)
+```
+
+## 6. Tentang API downloader/tools
+
+Sebagian besar fitur sekarang **jalan lokal** (gak butuh API pihak ketiga sama sekali):
+- **yt-dlp**: `ytmp3`, `ytmp4`, `play`, `play2`, `ytfull`, `yttranscript`, **`fbdl`, `igdl`, `pinterestdl`, `threads`, `ttmp3`, `ttmp4`, `ttslide`, `twitter`** (yt-dlp support 1700+ situs, gak cuma YouTube)
+- **ffmpeg**: `tomp3`, `tovn`, `cutmp3`
+- **Real-ESRGAN**: `hdr`, `hdrv2`, `hdrv3`
+- **@imgly/background-removal-node**: `removebg`
+- **tesseract.js**: `ocr`
+- **Google Drive langsung** (tanpa API): `drivelink`
+- **catbox.moe** (upload publik, bukan API tebak-tebakan): `tourl`
+- **sharp / wa-sticker-formatter**: `sticker`, `take`, `swm`, `brat`, `bratvid`, `qc`, `smeme`, `squote` (semua sticker menu, jalan lokal)
+- Murni lokal tanpa dependency luar: `kalkukator`, `infodevice`, `readmore`
+- Quote generator API terpisah (bukan siputzx, biasanya stabil): `iqc`
+
+Sisanya masih memanggil **api.siputzx.my.id** karena platformnya gak didukung yt-dlp / butuh data real-time / model AI yang berat:
+- `capcutdl`, `rednotedl`, `scribddl`, `slidesharedl`, `telesticker`, `teradl`, `teraview` — belum ketemu path API yang bener
+- `spotifydl` — Spotify pakai DRM, kemungkinan besar **gak akan pernah bisa** didownload gratis (bukan cuma masalah API kita, semua tools gratis kena batasan yang sama)
+- `cekbillpln` — butuh data real-time PLN, gak ada cara lokal
+- `kodepos` — belum ketemu dataset lokal yang bisa dipastikan akurat
+- `recolor` — belum ada model colorize portable kayak Real-ESRGAN
+
+Untuk mengatasi ini, `lib/api.js` punya **beberapa kandidat path** untuk tiap fitur. Saat sebuah fitur dipanggil pertama kali, bot otomatis coba satu-satu sampai ketemu yang berhasil, lalu **mengingat** path yang benar itu di file `lib/.resolved-endpoints.json` — jadi panggilan berikutnya langsung pakai path yang benar tanpa coba-coba lagi.
+
+Kalau ada fitur yang masih error setelah semua kandidat dicoba, bot akan kasih tahu di pesan error:
+- Path apa saja yang sudah dicoba
+- Response/error dari masing-masing
+
+Kalau itu terjadi:
+1. Kirim pesan errornya ke saya (Claude), saya bantu cari path yang benar
+2. Atau tambah kandidat path baru sendiri di `lib/api.js` → object `CANDIDATES`
+3. Kalau baru nambah kandidat, hapus dulu `lib/.resolved-endpoints.json` (kalau ada) supaya bot coba ulang dari awal
+
+## 7. Struktur project
+
+```
+hekabot/
+├── index.js              # koneksi Baileys + pairing code
+├── handler.js             # router command
+├── config.js               # identitas bot & pengaturan
+├── lib/
+│   ├── api.js              # wrapper API siputzx (endpoint map terpusat)
+│   ├── extract.js          # cari URL/teks di response API yang formatnya beda-beda
+│   ├── media.js             # ambil media (gambar/video/audio) dari pesan/reply
+│   ├── transfer.js          # download buffer & upload sementara ke catbox.moe
+│   ├── ffmpeg.js             # convert audio/video (tomp3, tovn, cutmp3)
+│   └── menu.js               # generator teks menu
+└── commands/
+    ├── downloader.js         # 20 fitur downloader
+    └── tools.js                 # 20 fitur tools
+```
+
+## 8. Menambah fitur baru nanti
+
+Tinggal tambah object baru di `commands/downloader.js` atau `commands/tools.js`:
+```js
+{
+  name: "namafitur",
+  run: async ({ jid, sock, text, args, reply, m }) => {
+    // logika fitur di sini
+  },
+}
+```
+Otomatis kebaca oleh `handler.js`, tidak perlu registrasi manual di tempat lain.
+
+## 9. Fun Menu & Game Menu
+
+**Fun Menu (13 fitur)**: semuanya jalan 100% lokal, generator teks random (kadang deterministik berdasarkan nama/teks yang dikasih, kadang murni acak). Gak butuh API.
+
+**Game Menu (27 fitur)**: 9 game jalan penuh dengan mekanisme tanya-jawab (nunggu jawaban di chat tanpa prefix, ada timer 45 detik, bisa ketik *nyerah*):
+- `asahotak`, `tebaktebakan`, `tebakbendera`, `tebakkata`, `tebakpresiden`, `tebakpokemon`, `susunkata`
+- `minesweeper` (grid interaktif, ketik koordinat kayak `minesweeper A1`)
+- `ulartangga` (dadu, ketik `ulartangga roll`)
+
+18 game sisanya (`tebakdrakor`, `tebaklirik`, `werewolf`, dll) masih **placeholder** — muncul di menu dan bisa dipanggil, tapi balesnya "belum tersedia" karena butuh bank soal yang harus dikurasi manual (apalagi buat yang berhubungan sama lirik lagu, perlu hati-hati soal hak cipta). Kalau mau salah satu dilengkapi, tinggal minta spesifik yang mana ke Claude.
+
+Bank soal ada di `lib/gameData.js` dan `lib/funData.js` — tinggal tambah item baru di array-nya kalau mau nambah variasi soal.
+
+## 10. Fitur AI (Gemini)
+
+Buat aktifin `.ai` (chat kayak AI beneran, pakai Gemini API kamu sendiri):
+
+1. Bikin API key gratis di **https://aistudio.google.com/apikey**
+2. Buka `config.js`, isi:
+   ```js
+   geminiApiKey: "API_KEY_KAMU_DI_SINI",
+   ```
+3. Restart bot (`Ctrl+C` → `npm start`)
+
+Cara pakai:
+```
+.ai jelasin apa itu lubang hitam
+.ai gimana caranya masak nasi goreng enak
+.resetai        ← reset riwayat obrolan (biar AI "lupa" konteks sebelumnya)
+```
+
+Bot inget konteks obrolan sebelumnya (10 giliran terakhir) selama belum di-reset atau bot di-restart.
+
+**Opsional — mode auto-chat** (bot otomatis bales SEMUA chat pribadi kayak asisten AI, gak perlu ketik `.ai` dulu): buka `config.js`, ubah:
+```js
+aiAutoChatPrivate: true,
+```
+Ini **cuma aktif di chat pribadi** (japri), bukan di grup — biar bot gak spam bales semua orang di grup tanpa diminta.
+
+## 11. Internet Menu
+
+| Fitur | Sumber | Reliabilitas |
+|---|---|---|
+| `wikipedia` | Wikipedia REST API resmi | ✅ Solid, gak akan bermasalah |
+| `cuaca` | Open-Meteo (gratis, tanpa key) | ✅ Solid, gak akan bermasalah |
+| `ai` / `resetai` | Gemini API kamu | ✅ Solid (asal API key diisi, lihat bagian 10) |
+| `alkitab` | SABDA (alkitab.sabda.org) | ⚠️ Bukan API resmi/JSON, hasil di-parse dari HTML — bisa berubah sewaktu-waktu |
+| `kbbi` | Scraping typoonline.com | ⚠️ Paling rawan putus, bergantung struktur halaman pihak ketiga |
+| `lirik` | lyrics.ovh | ⚠️ Wajib format *Artis - Judul*; hasil DIBATASI cuma cuplikan (bukan lirik lengkap, demi hak cipta) |
+| `pinterest` | Scraping pinterest.com | ⚠️ Pinterest cukup agresif soal anti-bot, paling mungkin diblokir sewaktu-waktu |
+
+Kalau `alkitab`/`kbbi`/`pinterest` mulai error, kirim pesan errornya ke saya (Claude), nanti dicek lagi sumbernya.
+
+## 12. Sistem Pendaftaran
+
+Sekarang **wajib daftar dulu** sebelum bisa pakai fitur bot (kecuali `menu`, `help`, `daftar`, `profil`).
+
+```
+.daftar Budi Santoso    ← daftar
+.profil                 ← cek data diri
+.hapusakun              ← batal daftar
+```
+
+Data tersimpan di **file** `data/users.json` (bukan cuma di memori) — jadi **aman biar bot di-restart** (`Ctrl+C` → `npm start` lagi, atau laptop mati-nyala biasa). Data cuma hilang kalau file/folder `data/` sengaja dihapus.
+
+Mau matiin fitur wajib daftar ini? Buka `config.js`, ubah:
+```js
+requireRegistration: false,
+```
+
+## 13. Update Game Menu
+
+Beberapa game yang gak sempat dibikinin bank soalnya udah **dihapus dari menu** (jejaksejarah, siapakahaku, tebakdrakor, tebakff, tebakgambar, tebakgenshin, tebakhero, tebakjkt, tebakkimia, tebakkode, tebaklagu, tebaklirik, tebaklogo, tebakpemainbola, tebaktokoh, werewolf) — biar menu-nya jujur, cuma nampilin yang beneran jalan.
+
+Ditambahin 2 kuis edukasi level **SMA kelas 12**:
+- `kuisislami` — Pendidikan Agama Islam (rukun islam, rukun iman, sejarah, dll)
+- `kuismtk` — Matematika (limit, turunan, matriks, statistika, peluang, dll)
+
+Catatan: karena sistem jawabnya cocok-cocokan teks persis (setelah dibersihin spasi/simbol), kadang variasi ejaan jawaban gak kebaca sama persis kayak yang diharapkan — kalau nemu itu, kabari aku, bisa disesuain.
+
+## 14. Main Menu
+
+Fitur umum/info bot, plus sistem pendaftaran dipindah ke sini:
+
+| Fitur | Fungsi |
+|---|---|
+| `bot` | Info singkat bot (uptime, owner, dll) |
+| `daftar` | Daftar (wajib sebelum pakai fitur lain) |
+| `database` | Statistik: jumlah user terdaftar, total fitur |
+| `hapusakun` | Batal daftar |
+| `help` | Panduan cara pakai bot (bisa diakses walau belum daftar) |
+| `list` | Ringkasan jumlah fitur per kategori |
+| `menu` | Daftar lengkap semua fitur |
+| `owner` | Kirim kontak asli owner (vCard) |
+| `ping` | Cek latensi bot |
+| `profile` | Lihat profil pendaftaran kamu (alias dari `profil`) |
+| `resource` | Spesifikasi & pemakaian server (CPU/RAM) |
+| `runtime` | Lama bot udah nyala |
+| `speedtest` | Tes kecepatan download koneksi server |
+| `status` | Set status "About" WhatsApp bot |
+
+## 15. Salam Sambutan Grup + Auto-Tutorial
+
+Kalau bot ada di sebuah grup:
+- **Member baru masuk** → bot otomatis kirim salam sambutan (tag nama) + kirim tutorial cara pakai bot
+- **Member keluar** → bot kirim salam perpisahan
+
+Mau matiin ini? Buka `config.js`, ubah:
+```js
+groupWelcomeEnabled: false,
+```
+
+## 16. Group Menu (admin grup only)
+
+| Fitur | Fungsi |
+|---|---|
+| `kick` | Keluarkan member (reply/mention/nomor) |
+| `promote` | Jadikan admin |
+| `demote` | Turunkan dari admin |
+| `mute` | Kunci grup (cuma admin bisa chat) |
+| `unmute` | Buka kunci grup |
+| `tagall` | Mention semua member (kelihatan daftarnya) |
+| `hidetag` | Mention semua member (tanpa nampilin daftar nama) |
+| `linkgrup` | Ambil link invite grup |
+
+**Wajib**: cuma bisa dipakai kalau kamu **admin di grup itu** (atau owner bot, bisa dari grup manapun). Kalau dipakai di luar grup (chat pribadi), otomatis ditolak.
+
+**Penting**: fitur-fitur ini butuh **bot-nya sendiri juga jadi admin** di grup itu — kalau bot bukan admin, WhatsApp bakal nolak semua aksi ini (kick, mute, dll), gak peduli siapa yang minta.
+
+## 17. Database User & Hapus Akun Orang Lain (Owner)
+
+`.database` sekarang nampilin **listing lengkap** semua user terdaftar (ID, nama, nomor, tanggal daftar, status) — **khusus owner**, karena isinya data pribadi/nomor telepon orang.
+
+Hapus akun orang lain (khusus owner), 2 cara:
+```
+.hapusakun U001
+.deleteuser U001
+```
+`.hapusakun` **tanpa** argumen tetap seperti biasa — hapus akun **diri sendiri**, bisa dipakai siapa aja.
+
+## 18. Banner buat `.menu`
+
+Sekarang `.menu` kirim **gambar banner dulu**, baru daftar menunya. **Taruh file banner kamu di:**
+```
+hekabot/assets/banner.jpg
+```
+(boleh juga `.jpeg`, `.png`, atau `.webp` — pakai salah satu nama file: `banner.jpg`/`banner.jpeg`/`banner.png`/`banner.webp`)
+
+Kalau file itu belum ada, bot otomatis skip bagian gambar dan langsung kirim menu teks aja (gak error).
+
+## Catatan penting
+
+- Ini pakai WhatsApp Web multi-device (tidak resmi/unofficial). Gunakan nomor sekunder, jangan nomor utama, untuk menghindari risiko banned oleh WhatsApp.
+- Jangan spam request ke API publik — bisa kena rate limit/block IP.
