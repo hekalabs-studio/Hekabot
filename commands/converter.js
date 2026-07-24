@@ -6,6 +6,17 @@ const { toMp3, toVoiceNote, toGif } = require("../lib/ffmpeg");
 const { convertWithLibreOffice } = require("../lib/libreoffice");
 const { convertPdfWithPython } = require("../lib/pdfConvert");
 
+/**
+ * Nama file hasil convert -- dibikin SAMA kayak nama file asli yang dikirim user (cuma ekstensinya
+ * diganti sesuai hasil convert-nya), bukan digantiin jadi "hasil.xxx" generik. Kalau media aslinya
+ * emang gak punya nama file (gambar/video/stiker dari WA emang gak bawa nama file), baru pakai
+ * nama fallback generik.
+ */
+function outputFileName(media, targetExt, fallbackBase = "hasil") {
+  const base = media?.baseName || fallbackBase;
+  return `${base}.${targetExt}`;
+}
+
 /** Convert PDF -> docx/pptx/xlsx pakai script Python (lokal, gak butuh API luar) */
 function pdfConvertCommand(name, scriptName, { ext, mimetype }) {
   return {
@@ -17,7 +28,7 @@ function pdfConvertCommand(name, scriptName, { ext, mimetype }) {
       }
       try {
         const buffer = await convertPdfWithPython(media.buffer, scriptName, ext);
-        await reply({ document: buffer, mimetype, fileName: `hasil.${ext}` });
+        await reply({ document: buffer, mimetype, fileName: outputFileName(media, ext) });
       } catch (err) {
         reply("Gagal convert: " + err.message);
       }
@@ -39,7 +50,7 @@ module.exports = [
       await reply({
         document: Buffer.from(bytes),
         mimetype: "application/pdf",
-        fileName: "compressed.pdf",
+        fileName: outputFileName(media, "pdf", "compressed"),
         caption: `Ukuran: ${before}KB → ${after}KB`,
       });
     },
@@ -65,7 +76,7 @@ module.exports = [
         pages.forEach((p) => merged.addPage(p));
       }
       const bytes = await merged.save();
-      await reply({ document: Buffer.from(bytes), mimetype: "application/pdf", fileName: "merged.pdf" });
+      await reply({ document: Buffer.from(bytes), mimetype: "application/pdf", fileName: outputFileName(media, "pdf", "merged") });
     },
   },
 
@@ -92,7 +103,7 @@ module.exports = [
       const pages = await result.copyPages(src, indices);
       pages.forEach((p) => result.addPage(p));
       const bytes = await result.save();
-      await reply({ document: Buffer.from(bytes), mimetype: "application/pdf", fileName: `hal-${start}-${end}.pdf` });
+      await reply({ document: Buffer.from(bytes), mimetype: "application/pdf", fileName: outputFileName(media, "pdf", `hal-${start}-${end}`) });
     },
   },
 
@@ -108,8 +119,8 @@ module.exports = [
     run: async ({ sock, m, reply }) => {
       const media = await resolveMedia(sock, m);
       if (!media || media.type !== "video") return reply("Reply video pendek dengan caption *togif*.");
-      const gif = await toGif(media.buffer, "mp4");
-      await reply({ image: gif, mimetype: "image/gif", gifPlayback: true });
+      const mp4 = await toGif(media.buffer, media.ext || "mp4");
+      await reply({ video: mp4, gifPlayback: true, mimetype: "video/mp4" });
     },
   },
 
@@ -131,7 +142,7 @@ module.exports = [
       const media = await resolveMedia(sock, m);
       if (!media || media.type !== "image") return reply("Reply gambar dengan caption *tojpg*.");
       const jpg = await sharp(media.buffer).flatten({ background: "#fff" }).jpeg({ quality: 90 }).toBuffer();
-      await reply({ document: jpg, mimetype: "image/jpeg", fileName: "hasil.jpg" });
+      await reply({ document: jpg, mimetype: "image/jpeg", fileName: outputFileName(media, "jpg") });
     },
   },
 
@@ -142,7 +153,7 @@ module.exports = [
       const media = await resolveMedia(sock, m);
       if (!media || media.type !== "video") return reply("Reply video dengan caption *tomp3*.");
       const mp3 = await toMp3(media.buffer, "mp4");
-      await reply({ audio: mp3, mimetype: "audio/mpeg", fileName: "audio.mp3" });
+      await reply({ audio: mp3, mimetype: "audio/mpeg", fileName: outputFileName(media, "mp3", "audio") });
     },
   },
 
@@ -159,13 +170,13 @@ module.exports = [
         const page = pdfDoc.addPage([img.width, img.height]);
         page.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
         const pdfBytes = await pdfDoc.save();
-        return reply({ document: Buffer.from(pdfBytes), mimetype: "application/pdf", fileName: "hasil.pdf" });
+        return reply({ document: Buffer.from(pdfBytes), mimetype: "application/pdf", fileName: outputFileName(media, "pdf") });
       }
 
       if (media.type === "document") {
         try {
           const buffer = await convertWithLibreOffice(media.buffer, media.ext, "pdf");
-          return reply({ document: buffer, mimetype: "application/pdf", fileName: "hasil.pdf" });
+          return reply({ document: buffer, mimetype: "application/pdf", fileName: outputFileName(media, "pdf") });
         } catch (err) {
           return reply("Gagal convert: " + err.message);
         }
@@ -182,7 +193,7 @@ module.exports = [
       const media = await resolveMedia(sock, m);
       if (!media || media.type !== "image") return reply("Reply gambar dengan caption *topng*.");
       const png = await sharp(media.buffer).png().toBuffer();
-      await reply({ document: png, mimetype: "image/png", fileName: "hasil.png" });
+      await reply({ document: png, mimetype: "image/png", fileName: outputFileName(media, "png") });
     },
   },
 
@@ -195,7 +206,7 @@ module.exports = [
     run: async ({ sock, m, reply }) => {
       const media = await resolveMedia(sock, m);
       if (!media) return reply("Reply media (gambar/video/audio/dokumen) dengan caption *tourl*.");
-      const url = await uploadToCatbox(media.buffer, `file.${media.ext}`);
+      const url = await uploadToCatbox(media.buffer, outputFileName(media, media.ext, "file"));
       reply(`Link kamu:\n${url}`);
     },
   },
@@ -233,7 +244,7 @@ module.exports = [
       const media = await resolveMedia(sock, m);
       if (!media || media.type !== "image") return reply("Reply gambar dengan caption *towebp*.");
       const webp = await sharp(media.buffer).webp({ quality: 90 }).toBuffer();
-      await reply({ document: webp, mimetype: "image/webp", fileName: "hasil.webp" });
+      await reply({ document: webp, mimetype: "image/webp", fileName: outputFileName(media, "webp") });
     },
   },
 ];

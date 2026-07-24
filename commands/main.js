@@ -1,5 +1,6 @@
 const os = require("os");
 const axios = require("axios");
+const checkDiskSpace = require("check-disk-space").default;
 const config = require("../config");
 const { DOWNLOADER_MENU, TOOLS_MENU, STICKER_MENU, FUN_MENU, GAME_MENU, INTERNET_MENU, GROUP_MENU, MAIN_MENU } = require("../lib/menu");
 const { getAllUsers } = require("../lib/userStore");
@@ -27,6 +28,40 @@ function formatUptime(ms) {
   const m = Math.floor((sec % 3600) / 60);
   const s = sec % 60;
   return `${h}j ${m}m ${s}d`;
+}
+
+function formatBytes(bytes) {
+  if (bytes >= 1024 ** 3) return (bytes / 1024 ** 3).toFixed(2) + " GB";
+  if (bytes >= 1024 ** 2) return (bytes / 1024 ** 2).toFixed(2) + " MB";
+  if (bytes >= 1024) return (bytes / 1024).toFixed(2) + " KB";
+  return bytes + " B";
+}
+
+/** Sampling pemakaian CPU (%) dalam rentang waktu singkat -- os.loadavg() gak akurat di Windows */
+function getCpuUsagePercent(sampleMs = 300) {
+  return new Promise((resolve) => {
+    const start = os.cpus();
+    setTimeout(() => {
+      const end = os.cpus();
+      let totalIdle = 0;
+      let totalTick = 0;
+      for (let i = 0; i < start.length; i++) {
+        const startTimes = start[i].times;
+        const endTimes = end[i].times;
+        const idleDiff = endTimes.idle - startTimes.idle;
+        const totalDiff =
+          (endTimes.user - startTimes.user) +
+          (endTimes.nice - startTimes.nice) +
+          (endTimes.sys - startTimes.sys) +
+          (endTimes.irq - startTimes.irq) +
+          idleDiff;
+        totalIdle += idleDiff;
+        totalTick += totalDiff;
+      }
+      const usage = totalTick > 0 ? 100 - (totalIdle / totalTick) * 100 : 0;
+      resolve(Math.max(0, Math.min(100, usage)));
+    }, sampleMs);
+  });
 }
 
 function totalFiturCount() {
@@ -124,22 +159,56 @@ module.exports = [
     },
   },
 
-  // resource - info spesifikasi & pemakaian server (OWNER ONLY - bocorin info server)
+  // resource - info spesifikasi & pemakaian server SELENGKAP-LENGKAPNYA (OWNER ONLY - bocorin info server)
   {
     name: "resource",
     ownerOnly: true,
     run: async ({ reply }) => {
-      const totalMemGb = os.totalmem() / 1024 / 1024 / 1024;
-      const freeMemGb = os.freemem() / 1024 / 1024 / 1024;
-      const usedMemGb = totalMemGb - freeMemGb;
+      await reply("⏳ Ngambil data spesifikasi & pemakaian server...");
+
       const cpus = os.cpus();
+      const cpuUsagePercent = await getCpuUsagePercent();
+
+      const totalMem = os.totalmem();
+      const freeMem = os.freemem();
+      const usedMem = totalMem - freeMem;
+      const memPercent = ((usedMem / totalMem) * 100).toFixed(1);
+
+      let diskInfo = "Gak bisa diambil (kemungkinan izin akses ditolak)";
+      try {
+        const disk = await checkDiskSpace(process.cwd());
+        const diskUsed = disk.size - disk.free;
+        const diskPercent = ((diskUsed / disk.size) * 100).toFixed(1);
+        diskInfo = `${formatBytes(diskUsed)} / ${formatBytes(disk.size)} terpakai (${diskPercent}%)`;
+      } catch (err) {
+        diskInfo = `Gagal ambil info disk: ${err.message}`;
+      }
+
+      const mem = process.memoryUsage();
+      const loadAvg = os.loadavg(); // [1m, 5m, 15m] -- selalu [0,0,0] di Windows, normal aja itu
+
       reply(
-        `💻 *Resource Server*\n\n` +
-        `CPU: ${cpus[0]?.model || "-"} (${cpus.length} core)\n` +
-        `RAM: ${usedMemGb.toFixed(2)}GB / ${totalMemGb.toFixed(2)}GB terpakai\n` +
-        `Platform: ${os.platform()} ${os.release()}\n` +
+        `💻 *Resource & Spesifikasi Server*\n\n` +
+        `*CPU*\n` +
+        `Model: ${cpus[0]?.model || "-"}\n` +
+        `Jumlah core: ${cpus.length}\n` +
+        `Kecepatan: ${cpus[0]?.speed ? (cpus[0].speed / 1000).toFixed(2) + " GHz" : "-"}\n` +
+        `Pemakaian saat ini: ${cpuUsagePercent.toFixed(1)}%\n` +
+        (loadAvg[0] > 0 ? `Load average: ${loadAvg.map((n) => n.toFixed(2)).join(", ")} (1m, 5m, 15m)\n` : "") +
+        `\n*RAM*\n` +
+        `${formatBytes(usedMem)} / ${formatBytes(totalMem)} terpakai (${memPercent}%)\n` +
+        `\n*Disk (partisi project ini)*\n` +
+        `${diskInfo}\n` +
+        `\n*Sistem Operasi*\n` +
+        `Platform: ${os.platform()} ${os.release()} (${os.arch()})\n` +
+        `Hostname: ${os.hostname()}\n` +
+        `System uptime: ${formatUptime(os.uptime() * 1000)}\n` +
+        `\n*Proses Bot*\n` +
         `Node.js: ${process.version}\n` +
-        `Proses bot: ${(process.memoryUsage().rss / 1024 / 1024).toFixed(1)} MB`
+        `RSS (total memory proses): ${formatBytes(mem.rss)}\n` +
+        `Heap: ${formatBytes(mem.heapUsed)} / ${formatBytes(mem.heapTotal)}\n` +
+        `Bot uptime: ${formatUptime(Date.now() - startTime)}\n` +
+        `PID: ${process.pid}`
       );
     },
   },

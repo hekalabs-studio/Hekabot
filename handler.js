@@ -53,6 +53,30 @@ for (const cmd of [
   for (const alias of cmd.aliases || []) allCommands.set(alias.toLowerCase(), cmd);
 }
 
+// Command dari kategori converter/downloader/tools biasanya makan waktu (convert file, download
+// video, dll) -- dikasih pesan "sedang diproses" biar user gak ngira bot diem/gak respon terus
+// ngirim command yang sama berulang kali (yang malah bikin hasilnya keluar dobel).
+const slowCommandNames = new Set();
+for (const cmd of [...downloaderCommands, ...toolsCommands, ...converterCommands]) {
+  slowCommandNames.add(cmd.name.toLowerCase());
+  for (const alias of cmd.aliases || []) slowCommandNames.add(alias.toLowerCase());
+}
+
+// Penjaga anti-duplikat: kadang WhatsApp/Baileys ngirim ulang event pesan yang SAMA PERSIS
+// (misal abis reconnect/re-sync), yang kalau gak dijaga bisa bikin 1 command asli diproses 2x
+// dan hasilnya keluar dobel. Simpen id pesan yang baru diproses, buang otomatis setelah 2 menit.
+const recentlyProcessed = new Map();
+function isDuplicateMessage(messageId) {
+  if (!messageId) return false;
+  const now = Date.now();
+  for (const [id, ts] of recentlyProcessed) {
+    if (now - ts > 2 * 60 * 1000) recentlyProcessed.delete(id);
+  }
+  if (recentlyProcessed.has(messageId)) return true;
+  recentlyProcessed.set(messageId, now);
+  return false;
+}
+
 function parseCommand(text) {
   const prefix = config.prefix || "";
   if (prefix && !text.startsWith(prefix)) return null;
@@ -63,6 +87,8 @@ function parseCommand(text) {
 }
 
 async function handleMessage(sock, m) {
+  if (isDuplicateMessage(m.key?.id)) return; // pesan yang sama udah pernah diproses, skip
+
   const text = getText(m).trim();
   if (!text) return;
 
@@ -158,6 +184,9 @@ async function handleMessage(sock, m) {
 
   try {
     await sock.sendPresenceUpdate("composing", jid);
+    if (slowCommandNames.has(parsed.cmd)) {
+      await reply("⏳ Sedang diproses, mohon tunggu sebentar...");
+    }
     await command.run({ sock, m, jid, args: parsed.args, text: parsed.text, reply });
   } catch (err) {
     console.error(`Error di command "${parsed.cmd}":`, err.message);

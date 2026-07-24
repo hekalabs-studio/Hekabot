@@ -1,31 +1,43 @@
 const { makeSticker } = require("../lib/stickerMaker");
-const { makeBratImage, makeQuoteCardV2, overlayMemeText, overlayQuoteBar, addWatermark } = require("../lib/textImage");
+const { makeQuoteCardV2, overlayMemeText, overlayQuoteBar, addWatermark } = require("../lib/textImage");
+const { makeBratImage } = require("../lib/bratCanvas");
 const { makeBratVideo } = require("../lib/bratvid");
 const { resolveMedia, getProfilePicture } = require("../lib/media");
 const config = require("../config");
 
 module.exports = [
-  // brat [Text] - LOKAL (render SVG + sharp). Ketik "hijau <teks>" buat versi neon original.
+  // brat [Text] - LOKAL (render @napi-rs/canvas, teks justify), otomatis jadi STICKER.
+  // Ketik "brat hijau <teks>" buat versi hijau neon.
   {
     name: "brat",
     run: async ({ jid, sock, text, reply }) => {
       if (!text) return reply("Tulis teksnya.\nContoh: *brat capek banget hari ini* (atau *brat hijau capek banget* buat versi neon)");
       const neon = /^hijau\s+/i.test(text);
       const cleanText = neon ? text.replace(/^hijau\s+/i, "") : text;
-      const img = await makeBratImage(cleanText, { neon });
-      const stickerBuf = await makeSticker(img, { pack: "brat", author: config.botName });
-      await reply({ sticker: stickerBuf });
+      try {
+        const imageBuffer = await makeBratImage(cleanText, { neon });
+        const stickerBuf = await makeSticker(imageBuffer, { pack: "brat", author: config.botName });
+        await reply({ sticker: stickerBuf });
+      } catch (error) {
+        console.error(error);
+        reply("Gagal membuat stiker brat.");
+      }
     },
   },
 
-  // bratvid [Text] - LOKAL (render frame + ffmpeg -> animated sticker)
+  // bratvid [Text] - LOKAL (render frame @napi-rs/canvas, teks justify + ffmpeg), otomatis jadi STICKER animasi.
   {
     name: "bratvid",
     run: async ({ jid, sock, text, reply }) => {
       if (!text) return reply("Tulis teksnya.\nContoh: *bratvid capek banget hari ini*");
-      const video = await makeBratVideo(text);
-      const stickerBuf = await makeSticker(video, { pack: "brat", author: config.botName });
-      await reply({ sticker: stickerBuf });
+      try {
+        const videoBuffer = await makeBratVideo(text);
+        const stickerBuf = await makeSticker(videoBuffer, { pack: "brat", author: config.botName });
+        await reply({ sticker: stickerBuf });
+      } catch (error) {
+        console.error(error);
+        reply("Gagal membuat stiker bratvid.");
+      }
     },
   },
 
