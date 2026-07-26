@@ -3,7 +3,7 @@ const { getWeather } = require("../lib/weather");
 const { getVerse } = require("../lib/alkitab");
 const { getDefinition } = require("../lib/kbbi");
 const { searchLyrics } = require("../lib/lyrics");
-const { searchPinterest } = require("../lib/pinterestSearch");
+const { searchOpenverse, getImageBuffer } = require("../lib/openverseSearch");
 
 module.exports = [
   // wikipedia [Text]
@@ -22,15 +22,22 @@ module.exports = [
   {
     name: "cuaca",
     run: async ({ text, reply }) => {
-      if (!text) return reply("Tulis nama kotanya.\nContoh: *cuaca Jakarta*");
+      if (!text) return reply("Tulis nama kotanya.\nContoh: *cuaca Klakah*");
       const weather = await getWeather(text);
       if (!weather) return reply("Kota gak ketemu, coba nama lain (misal tanpa embel-embel 'Kabupaten/Kota').");
+
       reply(
-        `🌤️ *Cuaca ${weather.location}*\n\n` +
-        `Kondisi: ${weather.condition}\n` +
-        `Suhu: ${weather.temperature}°C\n` +
-        `Kelembapan: ${weather.humidity}%\n` +
-        `Kecepatan angin: ${weather.windSpeed} km/j`
+        `───〔 Info Cuaca Lengkap 〕──\n\n` +
+        `📍 Lokasi: ${weather.location}\n` +
+        `☁️ Kondisi: ${weather.condition}\n` +
+        `🌡️ Suhu: ${weather.temperature}°C (${weather.tempF}°F)\n` +
+        `💦 Kelembaban: ${weather.humidity}%\n` +
+        `💨 Angin: ${weather.windDir} ${weather.windSpeed} mph\n` +
+        `⏲️ Tekanan: ${weather.pressure}\n` +
+        `👁️ Visibilitas: ${weather.visibility} mi\n` +
+        `☀️ Indeks UV: Indeks UV Maks ${weather.uv} (${weather.uvCategory})\n` +
+        `💧 Titik Embun: ${weather.dewPoint}° F\n\n` +
+        `Data diolah secara real-time oleh AI.`
       );
     },
   },
@@ -87,17 +94,43 @@ module.exports = [
     },
   },
 
-  // pinterest [Text] - cari gambar (via Openverse, bukan scraping Pinterest asli -- lihat catatan di lib/pinterestSearch.js)
+  // openverse [Text]
   {
-    name: "pinterest",
-    run: async ({ jid, sock, text, reply }) => {
-      if (!text) return reply("Tulis kata kuncinya.\nContoh: *pinterest desain kamar minimalis*");
+    name: "openverse",
+    aliases: ["image", "gambar"],
+    run: async ({ text, reply }) => {
+      if (!text) return reply("Tulis kata kuncinya.\nContoh: *openverse cat*");
+
       try {
-        const urls = await searchPinterest(text);
-        if (!urls.length) return reply("Gak ketemu hasil, coba kata kunci lain (atau coba dalam Bahasa Inggris).");
-        for (const url of urls) await reply({ image: { url } });
-      } catch {
-        reply("Pencarian gambar lagi gak bisa diakses. Coba lagi nanti.");
+        const urls = await searchOpenverse(text);
+
+        if (!urls || urls.length === 0) {
+          return reply("Gak ketemu hasil gambar, coba kata kunci lain.");
+        }
+
+        // Ambil 1 gambar acak dan coba unduh buffer-nya
+        let imageBuffer = null;
+        let attempts = 0;
+
+        while (!imageBuffer && attempts < 5 && urls.length > 0) {
+          const randomIndex = Math.floor(Math.random() * urls.length);
+          const selectedUrl = urls.splice(randomIndex, 1)[0];
+          imageBuffer = await getImageBuffer(selectedUrl);
+          attempts++;
+        }
+
+        if (!imageBuffer) {
+          return reply("Gagal mengunduh gambar. Silakan coba lagi.");
+        }
+
+        // Kirim gambar ke WhatsApp
+        await reply({
+          image: imageBuffer,
+          caption: `🖼️ Hasil pencarian (Openverse): *${text}*`,
+        });
+      } catch (err) {
+        console.error("Openverse Command Error:", err);
+        reply("Terjadi kesalahan saat mencari gambar.");
       }
     },
   },

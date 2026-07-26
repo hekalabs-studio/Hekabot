@@ -165,7 +165,7 @@ async function handleMessage(sock, m) {
 
   // Gate pendaftaran: command di luar daftar EXEMPT_COMMANDS wajib udah daftar dulu
   if (config.requireRegistration && !EXEMPT_COMMANDS.includes(parsed.cmd)) {
-    if (!isRegistered(senderJid)) {
+    if (!isRegistered(senderJid) && !isOwner(senderJid)) {
       return reply(
         "🔒 Kamu belum terdaftar. Daftar dulu ya sebelum bisa pakai fitur ini.\n\n" +
         "Format: *.daftar Nama Kamu*\nContoh: *.daftar Budi Santoso*"

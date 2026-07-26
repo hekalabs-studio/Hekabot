@@ -42,16 +42,39 @@ module.exports = [
   },
 
   // qc [Text] - LOKAL, kartu quote ala Telegram/Quotly (avatar + nama + teks)
+  // qc [Text] - LOKAL, kartu quote ala Telegram/Quotly (avatar + nama + teks)
   {
     name: "qc",
     run: async ({ jid, sock, text, m, reply }) => {
-      if (!text) return reply("Tulis teksnya.\nContoh: *qc Hidup itu singkat*");
-      const senderJid = m.key.participant || m.key.remoteJid;
-      const senderName = m.pushName || "Seseorang";
-      const avatarBuffer = await getProfilePicture(sock, senderJid);
-      const img = await makeQuoteCardV2(senderName, text, avatarBuffer);
-      const stickerBuf = await makeSticker(img, { pack: config.botName, author: config.ownerName });
-      await reply({ sticker: stickerBuf });
+      // 1. Ambil teks dari input ATAU dari pesan yang di-reply
+      let quoteText = text;
+      if (!quoteText && m.quoted && m.quoted.text) {
+        quoteText = m.quoted.text;
+      }
+      if (!quoteText) {
+        return reply("Tulis teksnya atau reply sebuah pesan.\nContoh: *qc Hidup itu singkat*");
+      }
+
+      // 2. Tentukan pengirim (jika reply pesan, gunakan sender pesan yang di-reply)
+      const senderJid = m.quoted ? m.quoted.sender : (m.key.participant || m.key.remoteJid);
+      const senderName = m.quoted ? (m.quoted.pushName || "Seseorang") : (m.pushName || "Seseorang");
+
+      try {
+        // 3. Ambil foto profil & buat gambar quote card
+        const avatarBuffer = await getProfilePicture(sock, senderJid);
+        const img = await makeQuoteCardV2(senderName, quoteText, avatarBuffer);
+
+        // 4. Buat stiker
+        const stickerBuf = await makeSticker(img, {
+          pack: config.botName,
+          author: config.ownerName,
+        });
+
+        await reply({ sticker: stickerBuf });
+      } catch (error) {
+        console.error("Error pada command QC:", error);
+        reply("Gagal membuat stiker quote.");
+      }
     },
   },
 
