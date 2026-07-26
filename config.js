@@ -13,8 +13,17 @@ module.exports = {
   // Prefix command. Set "" (string kosong) kalau mau semua command bisa dipanggil tanpa prefix.
   prefix: ".",
 
-  // Base URL API downloader/tools (gratis, tanpa API key)
-  apiBaseUrl: "https://api.siputzx.my.id",
+  // Base URL API downloader/tools (gratis, tanpa API key). Dipakai buat fitur-fitur yang gak
+  // bisa jalan lokal (misal download beberapa platform khusus, cek kode pos, dst).
+  //
+  // Ini array (bukan satu URL doang) SENGAJA -- API gratisan kayak gini kadang down/lambat, jadi
+  // bot otomatis coba provider PERTAMA dulu; kalau semua kandidat endpoint-nya gagal di provider
+  // itu, otomatis lanjut coba provider BERIKUTNYA di list ini, dst. Begitu ketemu yang jalan,
+  // kombinasi (provider + path) itu diinget di lib/.resolved-endpoints.json biar panggilan
+  // berikutnya langsung pakai yang udah terbukti jalan (gak perlu coba-coba dari awal lagi).
+  //
+  // Mau nambah provider lain? Tinggal tambahin URL-nya di array ini (urutan = urutan prioritas).
+  apiBaseUrls: ["https://api.siputzx.my.id", "https://api.ryzendesu.vip"],
 
   // Folder session Baileys
   sessionPath: "./session",

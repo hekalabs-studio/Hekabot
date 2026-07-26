@@ -10,6 +10,7 @@ const { downloadDriveFile } = require("../lib/gdrive");
 const { resolveMedia } = require("../lib/media");
 const { uploadToCatbox } = require("../lib/transfer");
 const { cutAudio } = require("../lib/ffmpeg");
+const { searchKodepos, formatKodeposResults } = require("../lib/kodepos");
 
 const startTime = Date.now();
 
@@ -162,9 +163,9 @@ module.exports = [
   {
     name: "kodepos",
     run: async ({ text, reply }) => {
-      if (!text) return reply("Tulis nama daerahnya.\nContoh: *kodepos Cikarang*");
-      const res = await apiGet("kodepos", { query: text });
-      reply(findText(res) || JSON.stringify(res, null, 2).slice(0, 1500));
+      if (!text) return reply("Tulis nama daerah (kelurahan/kecamatan/kota) atau kode pos 5 digit.\nContoh: *kodepos Cikarang* atau *kodepos 17530*");
+      const results = await searchKodepos(text);
+      reply(formatKodeposResults(results, text));
     },
   },
 

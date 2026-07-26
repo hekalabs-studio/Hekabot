@@ -81,27 +81,34 @@ Sebagian besar fitur sekarang **jalan lokal** (gak butuh API pihak ketiga sama s
 - **tesseract.js**: `ocr`
 - **Google Drive langsung** (tanpa API): `drivelink`
 - **catbox.moe** (upload publik, bukan API tebak-tebakan): `tourl`
+- **@damarkuncoro/posindonesia** (dataset offline ~80.000+ data): `kodepos`
 - **sharp / wa-sticker-formatter**: `sticker`, `take`, `swm`, `brat`, `bratvid`, `qc`, `smeme`, `squote` (semua sticker menu, jalan lokal)
 - Murni lokal tanpa dependency luar: `kalkukator`, `infodevice`, `readmore`
 - Quote generator API terpisah (bukan siputzx, biasanya stabil): `iqc`
 
-Sisanya masih memanggil **api.siputzx.my.id** karena platformnya gak didukung yt-dlp / butuh data real-time / model AI yang berat:
-- `capcutdl`, `rednotedl`, `scribddl`, `slidesharedl`, `telesticker`, `teradl`, `teraview` — belum ketemu path API yang bener
-- `spotifydl` — Spotify pakai DRM, kemungkinan besar **gak akan pernah bisa** didownload gratis (bukan cuma masalah API kita, semua tools gratis kena batasan yang sama)
+Sisanya masih memanggil API pihak ketiga karena platformnya gak didukung yt-dlp / butuh data real-time:
+- `capcutdl`, `telesticker` — belum ketemu path API yang 100% dipastikan bener
 - `cekbillpln` — butuh data real-time PLN, gak ada cara lokal
-- `kodepos` — belum ketemu dataset lokal yang bisa dipastikan akurat
 - `recolor` — belum ada model colorize portable kayak Real-ESRGAN
 
-Untuk mengatasi ini, `lib/api.js` punya **beberapa kandidat path** untuk tiap fitur. Saat sebuah fitur dipanggil pertama kali, bot otomatis coba satu-satu sampai ketemu yang berhasil, lalu **mengingat** path yang benar itu di file `lib/.resolved-endpoints.json` — jadi panggilan berikutnya langsung pakai path yang benar tanpa coba-coba lagi.
+`scribddl` & `slidesharedl` **BUKAN** lewat sistem `apiGet`/siputzx di atas — Scribd/SlideShare sekarang diproteksi ketat dan gak punya JSON API publik buat download (tool yang beneran jalan buat itu butuh scraping halaman `/embeds/` + simulasi scroll pakai headless browser, atau bahkan cookies akun premium). Daripada pura-pura bisa padahal gak bisa dijamin, dua command ini nyusunin **link siap-pakai ke tool downloader pihak ketiga yang masih aktif** (`scribd.vdownloaders.com`, `downslides.com`) — user tinggal buka link-nya & klik tombol download di sana, bot gak coba ambil file-nya sendiri.
 
-Kalau ada fitur yang masih error setelah semua kandidat dicoba, bot akan kasih tahu di pesan error:
-- Path apa saja yang sudah dicoba
+(`rednotedl`, `spotifydl`, `teradl`, `teraview` udah dihapus dari menu — API-nya gak pernah ketemu path yang jalan, dan khusus `spotifydl` emang gak mungkin gratis karena Spotify pakai DRM.)
+
+Untuk mengatasi ini, sistem di `lib/api.js` punya **2 lapis coba-coba otomatis**:
+1. **Multi provider**: `config.apiBaseUrls` berisi beberapa base URL (bukan cuma satu). Kalau provider pertama down, otomatis lanjut coba provider berikutnya.
+2. **Multi path**: tiap fitur punya beberapa kandidat path, karena beda provider suka pakai struktur URL beda.
+
+Begitu ketemu kombinasi (provider + path) yang berhasil, itu **diingat** di file `lib/.resolved-endpoints.json` — jadi panggilan berikutnya langsung pakai yang benar tanpa coba-coba lagi.
+
+Kalau ada fitur yang masih error setelah semua kandidat & provider dicoba, bot akan kasih tahu di pesan error:
+- Provider + path apa saja yang sudah dicoba
 - Response/error dari masing-masing
 
 Kalau itu terjadi:
 1. Kirim pesan errornya ke saya (Claude), saya bantu cari path yang benar
-2. Atau tambah kandidat path baru sendiri di `lib/api.js` → object `CANDIDATES`
-3. Kalau baru nambah kandidat, hapus dulu `lib/.resolved-endpoints.json` (kalau ada) supaya bot coba ulang dari awal
+2. Atau tambah provider baru di `config.js` → `apiBaseUrls`, atau kandidat path baru di `lib/api.js` → object `CANDIDATES`
+3. Kalau baru nambah kandidat/provider, hapus dulu `lib/.resolved-endpoints.json` (kalau ada) supaya bot coba ulang dari awal
 
 ## 7. Struktur project
 
@@ -111,7 +118,8 @@ hekabot/
 ├── handler.js             # router command
 ├── config.js               # identitas bot & pengaturan
 ├── lib/
-│   ├── api.js              # wrapper API siputzx (endpoint map terpusat)
+│   ├── api.js              # wrapper API multi-provider (endpoint map terpusat)
+│   ├── kodepos.js           # cari kode pos Indonesia, LOKAL/offline
 │   ├── extract.js          # cari URL/teks di response API yang formatnya beda-beda
 │   ├── media.js             # ambil media (gambar/video/audio) dari pesan/reply
 │   ├── transfer.js          # download buffer & upload sementara ke catbox.moe
@@ -139,14 +147,15 @@ Otomatis kebaca oleh `handler.js`, tidak perlu registrasi manual di tempat lain.
 
 **Fun Menu (13 fitur)**: semuanya jalan 100% lokal, generator teks random (kadang deterministik berdasarkan nama/teks yang dikasih, kadang murni acak). Gak butuh API.
 
-**Game Menu (27 fitur)**: 9 game jalan penuh dengan mekanisme tanya-jawab (nunggu jawaban di chat tanpa prefix, ada timer 45 detik, bisa ketik *nyerah*):
-- `asahotak`, `tebaktebakan`, `tebakbendera`, `tebakkata`, `tebakpresiden`, `tebakpokemon`, `susunkata`
+**Game Menu (12 fitur)**: semuanya jalan penuh, gak ada yang placeholder. Mekanismenya tanya-jawab (nunggu jawaban di chat tanpa prefix, ada timer 45 detik, bisa ketik *nyerah*), kecuali `minesweeper` & `ulartangga` yang interaktif pakai perintah lanjutan:
+- `asahotak`, `tebaktebakan`, `tebakbendera`, `tebakkata`, `tebakpresiden`, `tebakpokemon`, `susunkata`, `terasaurus`
 - `minesweeper` (grid interaktif, ketik koordinat kayak `minesweeper A1`)
 - `ulartangga` (dadu, ketik `ulartangga roll`)
+- `kuisislami`, `kuismtk` (kuis edukasi level SMA kelas 12)
 
-18 game sisanya (`tebakdrakor`, `tebaklirik`, `werewolf`, dll) masih **placeholder** — muncul di menu dan bisa dipanggil, tapi balesnya "belum tersedia" karena butuh bank soal yang harus dikurasi manual (apalagi buat yang berhubungan sama lirik lagu, perlu hati-hati soal hak cipta). Kalau mau salah satu dilengkapi, tinggal minta spesifik yang mana ke Claude.
+Game-game yang dulu direncanain tapi gak sempat dibikinin bank soalnya (`tebakdrakor`, `tebaklirik`, `werewolf`, dan lain-lain yang butuh kurasi konten/hak cipta) udah **dihapus dari menu** — bukan dibiarin jadi placeholder, biar menu-nya jujur cuma nampilin yang beneran jalan.
 
-Bank soal ada di `lib/gameData.js` dan `lib/funData.js` — tinggal tambah item baru di array-nya kalau mau nambah variasi soal.
+Bank soal ada di `lib/gameData.js` dan `lib/funData.js` — tinggal tambah item baru di array-nya kalau mau nambah variasi soal. Catatan: sistem jawabnya cocok-cocokan teks persis (setelah dibersihin spasi/simbol), jadi kadang variasi ejaan jawaban gak kebaca sama persis kayak yang diharapkan — kalau nemu itu, kabari aku, bisa disesuain.
 
 ## 10. Fitur AI (Gemini)
 
@@ -205,17 +214,7 @@ Mau matiin fitur wajib daftar ini? Buka `config.js`, ubah:
 requireRegistration: false,
 ```
 
-## 13. Update Game Menu
-
-Beberapa game yang gak sempat dibikinin bank soalnya udah **dihapus dari menu** (jejaksejarah, siapakahaku, tebakdrakor, tebakff, tebakgambar, tebakgenshin, tebakhero, tebakjkt, tebakkimia, tebakkode, tebaklagu, tebaklirik, tebaklogo, tebakpemainbola, tebaktokoh, werewolf) — biar menu-nya jujur, cuma nampilin yang beneran jalan.
-
-Ditambahin 2 kuis edukasi level **SMA kelas 12**:
-- `kuisislami` — Pendidikan Agama Islam (rukun islam, rukun iman, sejarah, dll)
-- `kuismtk` — Matematika (limit, turunan, matriks, statistika, peluang, dll)
-
-Catatan: karena sistem jawabnya cocok-cocokan teks persis (setelah dibersihin spasi/simbol), kadang variasi ejaan jawaban gak kebaca sama persis kayak yang diharapkan — kalau nemu itu, kabari aku, bisa disesuain.
-
-## 14. Main Menu
+## 13. Main Menu
 
 Fitur umum/info bot, plus sistem pendaftaran dipindah ke sini:
 
@@ -236,7 +235,7 @@ Fitur umum/info bot, plus sistem pendaftaran dipindah ke sini:
 | `speedtest` | Tes kecepatan download koneksi server |
 | `status` | Set status "About" WhatsApp bot |
 
-## 15. Salam Sambutan Grup + Auto-Tutorial
+## 14. Salam Sambutan Grup + Auto-Tutorial
 
 Kalau bot ada di sebuah grup:
 - **Member baru masuk** → bot otomatis kirim salam sambutan (tag nama) + kirim tutorial cara pakai bot
@@ -247,7 +246,7 @@ Mau matiin ini? Buka `config.js`, ubah:
 groupWelcomeEnabled: false,
 ```
 
-## 16. Group Menu (admin grup only)
+## 15. Group Menu (admin grup only)
 
 | Fitur | Fungsi |
 |---|---|
@@ -264,7 +263,7 @@ groupWelcomeEnabled: false,
 
 **Penting**: fitur-fitur ini butuh **bot-nya sendiri juga jadi admin** di grup itu — kalau bot bukan admin, WhatsApp bakal nolak semua aksi ini (kick, mute, dll), gak peduli siapa yang minta.
 
-## 17. Database User & Hapus Akun Orang Lain (Owner)
+## 16. Database User & Hapus Akun Orang Lain (Owner)
 
 `.database` sekarang nampilin **listing lengkap** semua user terdaftar (ID, nama, nomor, tanggal daftar, status) — **khusus owner**, karena isinya data pribadi/nomor telepon orang.
 
@@ -275,7 +274,7 @@ Hapus akun orang lain (khusus owner), 2 cara:
 ```
 `.hapusakun` **tanpa** argumen tetap seperti biasa — hapus akun **diri sendiri**, bisa dipakai siapa aja.
 
-## 18. Banner buat `.menu`
+## 17. Banner buat `.menu`
 
 Sekarang `.menu` kirim **gambar banner dulu**, baru daftar menunya. **Taruh file banner kamu di:**
 ```

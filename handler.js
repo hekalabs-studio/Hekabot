@@ -53,15 +53,6 @@ for (const cmd of [
   for (const alias of cmd.aliases || []) allCommands.set(alias.toLowerCase(), cmd);
 }
 
-// Command dari kategori converter/downloader/tools biasanya makan waktu (convert file, download
-// video, dll) -- dikasih pesan "sedang diproses" biar user gak ngira bot diem/gak respon terus
-// ngirim command yang sama berulang kali (yang malah bikin hasilnya keluar dobel).
-const slowCommandNames = new Set();
-for (const cmd of [...downloaderCommands, ...toolsCommands, ...converterCommands]) {
-  slowCommandNames.add(cmd.name.toLowerCase());
-  for (const alias of cmd.aliases || []) slowCommandNames.add(alias.toLowerCase());
-}
-
 // Penjaga anti-duplikat: kadang WhatsApp/Baileys ngirim ulang event pesan yang SAMA PERSIS
 // (misal abis reconnect/re-sync), yang kalau gak dijaga bisa bikin 1 command asli diproses 2x
 // dan hasilnya keluar dobel. Simpen id pesan yang baru diproses, buang otomatis setelah 2 menit.
@@ -177,19 +168,26 @@ async function handleMessage(sock, m) {
     if (!isRegistered(senderJid)) {
       return reply(
         "🔒 Kamu belum terdaftar. Daftar dulu ya sebelum bisa pakai fitur ini.\n\n" +
-        "Format: *daftar Nama Kamu*\nContoh: *daftar Budi Santoso*"
+        "Format: *.daftar Nama Kamu*\nContoh: *.daftar Budi Santoso*"
       );
     }
   }
 
+  // Kirim react emoji ke pesan user (bukan reply teks baru) -- dipakai buat kasih status
+  // proses command tanpa nambah-nambah chat dengan pesan "sedang diproses" dkk.
+  const react = (emoji) =>
+    sock.sendMessage(jid, { react: { text: emoji, key: m.key } }).catch((err) => {
+      console.error("Gagal kirim react:", err.message);
+    });
+
   try {
     await sock.sendPresenceUpdate("composing", jid);
-    if (slowCommandNames.has(parsed.cmd)) {
-      await reply("⏳ Sedang diproses, mohon tunggu sebentar...");
-    }
+    await react("⏳"); // tandain pesan user lagi diproses
     await command.run({ sock, m, jid, args: parsed.args, text: parsed.text, reply });
+    await react("✅"); // command sukses dijalankan
   } catch (err) {
     console.error(`Error di command "${parsed.cmd}":`, err.message);
+    await react("❌"); // command gagal
     await reply(`❌ Gagal menjalankan *${parsed.cmd}*.\n${err.message}`);
   }
 }
