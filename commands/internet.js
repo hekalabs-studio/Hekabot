@@ -1,5 +1,6 @@
 const { searchWikipedia } = require("../lib/wikipedia");
 const { getWeather } = require("../lib/weather");
+const { getPrayerTimes } = require("../lib/prayerTimes");
 const { getVerse } = require("../lib/alkitab");
 const { getDefinition } = require("../lib/kbbi");
 const { searchLyrics } = require("../lib/lyrics");
@@ -27,17 +28,51 @@ module.exports = [
       if (!weather) return reply("Kota gak ketemu, coba nama lain (misal tanpa embel-embel 'Kabupaten/Kota').");
 
       reply(
-        `───〔 Info Cuaca Lengkap 〕──\n\n` +
-        `📍 Lokasi: ${weather.location}\n` +
-        `☁️ Kondisi: ${weather.condition}\n` +
-        `🌡️ Suhu: ${weather.temperature}°C (${weather.tempF}°F)\n` +
-        `💦 Kelembaban: ${weather.humidity}%\n` +
-        `💨 Angin: ${weather.windDir} ${weather.windSpeed} mph\n` +
-        `⏲️ Tekanan: ${weather.pressure}\n` +
-        `👁️ Visibilitas: ${weather.visibility} mi\n` +
-        `☀️ Indeks UV: Indeks UV Maks ${weather.uv} (${weather.uvCategory})\n` +
-        `💧 Titik Embun: ${weather.dewPoint}° F\n\n` +
+        `───〔 🌤️ Info Cuaca Lengkap 〕──\n\n` +
+        `📍 Lokasi        : ${weather.location}\n` +
+        `🕒 Waktu Lokal    : ${weather.localTime}\n` +
+        `☁️ Kondisi        : ${weather.condition}\n` +
+        `🌡️ Suhu           : ${weather.temperature}°C (${weather.tempF}°F) — Terasa ${weather.feelsLikeC}°C (${weather.feelsLikeF}°F)\n` +
+        `🔺 Tertinggi      : ${weather.maxC}°C (${weather.maxF}°F)\n` +
+        `🔻 Terendah       : ${weather.minC}°C (${weather.minF}°F)\n` +
+        `💦 Kelembaban     : ${weather.humidity}%\n` +
+        `🌧️ Peluang Hujan  : ${weather.rainChance}%\n` +
+        `💨 Angin          : ${weather.windDir} ${weather.windSpeed} mph (hembusan ${weather.windGust} mph)\n` +
+        `⏲️ Tekanan        : ${weather.pressure}\n` +
+        `👁️ Visibilitas    : ${weather.visibility} mi\n` +
+        `☀️ Indeks UV      : Maks ${weather.uv} (${weather.uvCategory})\n` +
+        `💧 Titik Embun    : ${weather.dewPoint}°F\n` +
+        `🌅 Matahari Terbit: ${weather.sunrise}\n` +
+        `🌇 Matahari Terbenam: ${weather.sunset}\n\n` +
         `Data diolah secara real-time oleh AI.`
+      );
+    },
+  },
+
+  // jadwalsalat [Text]
+  {
+    name: "jadwalsalat",
+    aliases: ["jadwalsholat", "jadwalshalat", "sholat", "sholatjadwal"],
+    run: async ({ text, reply }) => {
+      if (!text) return reply("Tulis nama kotanya.\nContoh: *jadwalsalat Klakah*");
+      const jadwal = await getPrayerTimes(text);
+      if (!jadwal) return reply("Kota gak ketemu, coba nama lain (misal tanpa embel-embel 'Kabupaten/Kota').");
+
+      reply(
+        `───〔 *🕌 Jadwal Sholat* 〕──\n\n` +
+        `\`\`\`Kota     :\`\`\` ${jadwal.city}\n` +
+        `\`\`\`Provinsi :\`\`\` ${jadwal.province}\n` +
+        (jadwal.tanggalMasehi ? `\`\`\`Tanggal  :\`\`\` ${jadwal.tanggalMasehi}\n` : "") +
+        (jadwal.tanggalHijriah ? `\`\`\`Hijriah  :\`\`\` ${jadwal.tanggalHijriah}\n` : "") +
+        `\n` +
+        `\`\`\`Imsak    :\`\`\` ${jadwal.imsak}\n` +
+        `\`\`\`Subuh    :\`\`\` ${jadwal.subuh}\n` +
+        `\`\`\`Terbit   :\`\`\` ${jadwal.terbit}\n` +
+        `\`\`\`Dzuhur   :\`\`\` ${jadwal.dzuhur}\n` +
+        `\`\`\`Ashar    :\`\`\` ${jadwal.ashar}\n` +
+        `\`\`\`Maghrib  :\`\`\` ${jadwal.maghrib}\n` +
+        `\`\`\`Isya     :\`\`\` ${jadwal.isya}\n\n` +
+        `_Metode perhitungan: Kemenag RI_`
       );
     },
   },
