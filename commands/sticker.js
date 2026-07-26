@@ -16,7 +16,7 @@ module.exports = [
       const cleanText = neon ? text.replace(/^hijau\s+/i, "") : text;
       try {
         const imageBuffer = await makeBratImage(cleanText, { neon });
-        const stickerBuf = await makeSticker(imageBuffer, { pack: "brat", author: config.botName });
+        const stickerBuf = await makeSticker(imageBuffer, { pack: config.botName, author: config.ownerName });
         await reply({ sticker: stickerBuf });
       } catch (error) {
         console.error(error);
@@ -32,7 +32,7 @@ module.exports = [
       if (!text) return reply("Tulis teksnya.\nContoh: *bratvid capek banget hari ini*");
       try {
         const videoBuffer = await makeBratVideo(text);
-        const stickerBuf = await makeSticker(videoBuffer, { pack: "brat", author: config.botName });
+        const stickerBuf = await makeSticker(videoBuffer, { pack: config.botName, author: config.ownerName });
         await reply({ sticker: stickerBuf });
       } catch (error) {
         console.error(error);

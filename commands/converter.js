@@ -2,7 +2,7 @@ const sharp = require("sharp");
 const { PDFDocument } = require("pdf-lib");
 const { resolveMedia } = require("../lib/media");
 const { uploadToCatbox, downloadBuffer } = require("../lib/transfer");
-const { toMp3, toVoiceNote, toGif } = require("../lib/ffmpeg");
+const { toMp3, toVoiceNote, toGif, stickerToMp4 } = require("../lib/ffmpeg");
 const { convertWithLibreOffice } = require("../lib/libreoffice");
 const { convertPdfWithPython } = require("../lib/pdfConvert");
 
@@ -113,14 +113,24 @@ module.exports = [
   // toexcel [Doc] - PDF -> Excel (ekstrak tabel kalau ada, fallback teks per baris), LOKAL via Python
   pdfConvertCommand("toexcel", "pdf_to_xlsx.py", { ext: "xlsx", mimetype: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
 
-  // togif [Video] - LOKAL pakai ffmpeg
+  // togif [Video, Sticker] - LOKAL pakai ffmpeg (video) ATAU sharp+ffmpeg (stiker animasi), dikirim
+  // sebagai video mp4 gifPlayback:true (trik "gif" WhatsApp), SAMA kayak .tomp4 tapi auto-loop+bisu.
   {
     name: "togif",
     run: async ({ sock, m, reply }) => {
       const media = await resolveMedia(sock, m);
-      if (!media || media.type !== "video") return reply("Reply video pendek dengan caption *togif*.");
-      const mp4 = await toGif(media.buffer, media.ext || "mp4");
-      await reply({ video: mp4, gifPlayback: true, mimetype: "video/mp4" });
+      if (!media || (media.type !== "video" && media.type !== "sticker")) {
+        return reply("Reply video pendek atau stiker (yang bergerak) dengan caption *togif*.");
+      }
+      try {
+        const mp4 =
+          media.type === "video" ? await toGif(media.buffer, media.ext || "mp4") : await stickerToMp4(media.buffer);
+        await reply({ video: mp4, gifPlayback: true, mimetype: "video/mp4" });
+      } catch (error) {
+        if (error.code === "STATIC_STICKER") return reply("Stikernya statis (bukan animasi), gak bisa dijadiin GIF.");
+        console.error(error);
+        reply("Gagal ubah ke GIF.");
+      }
     },
   },
 
@@ -132,6 +142,23 @@ module.exports = [
       if (!media || media.type !== "sticker") return reply("Reply stiker dengan caption *toimg*.");
       const png = await sharp(media.buffer).png().toBuffer();
       await reply({ image: png });
+    },
+  },
+
+  // tomp4 [Sticker] - LOKAL pakai sharp (ekstrak frame) + ffmpeg (rakit video), stiker animasi -> mp4
+  {
+    name: "tomp4",
+    run: async ({ sock, m, reply }) => {
+      const media = await resolveMedia(sock, m);
+      if (!media || media.type !== "sticker") return reply("Reply stiker (yang bergerak) dengan caption *tomp4*.");
+      try {
+        const mp4 = await stickerToMp4(media.buffer);
+        await reply({ video: mp4, mimetype: "video/mp4" });
+      } catch (error) {
+        if (error.code === "STATIC_STICKER") return reply("Stikernya statis (bukan animasi), gak bisa dijadiin video.");
+        console.error(error);
+        reply("Gagal ubah stiker ke video.");
+      }
     },
   },
 

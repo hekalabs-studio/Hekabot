@@ -64,13 +64,20 @@ async function startBot() {
 
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
     if (type !== "notify") return;
-    const m = messages[0];
-    if (!m?.message || m.key.fromMe) return;
 
-    try {
-      await handleMessage(sock, m);
-    } catch (err) {
-      console.error("Error saat handle message:", err);
+    // PENTING: Baileys kadang ngirim LEBIH DARI SATU pesan sekaligus dalam satu event ini
+    // (misal kirim beberapa command cepat berturut-turut/bersamaan). Sebelumnya di sini cuma
+    // ambil messages[0] doang, jadi pesan lain di batch yang sama ke-skip/gak diproses sama sekali.
+    // Diproses satu-satu (bukan Promise.all) biar urutannya tetap sesuai urutan masuk dan gak
+    // saling rebutan resource (ffmpeg/riwayat AI/dst) di waktu yang sama.
+    for (const m of messages) {
+      if (!m?.message || m.key.fromMe) continue;
+
+      try {
+        await handleMessage(sock, m);
+      } catch (err) {
+        console.error("Error saat handle message:", err);
+      }
     }
   });
 

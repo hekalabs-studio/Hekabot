@@ -132,7 +132,9 @@ async function handleMessage(sock, m) {
     // dan ini chat pribadi (bukan grup), lempar ke Gemini sebagai obrolan biasa.
     if (config.aiAutoChatPrivate && !jid.endsWith("@g.us") && config.geminiApiKey) {
       try {
-        const answer = await askGemini(jid, text);
+        // Chat pribadi (bukan grup) -> jid = lawan bicara itu sendiri, jadi bisa langsung dicek isOwner.
+        const systemPrompt = isOwner(jid) ? config.aiOwnerSystemPrompt : config.aiSystemPrompt;
+        const answer = await askGemini(jid, text, systemPrompt);
         await reply(answer);
       } catch (err) {
         console.error("Error AI auto-chat:", err.message);
