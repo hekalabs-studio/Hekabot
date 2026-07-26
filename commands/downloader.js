@@ -90,68 +90,7 @@ function imageCommand(name, endpointKey, aliases = []) {
 }
 
 // ============================================================
-// Scribd & SlideShare — BUKAN lewat apiGet/siputzx (situsnya sekarang diproteksi ketat,
-// gak ada JSON API publik yang beneran jalan buat ini -- lihat README bagian relevan).
-// Alih-alih pura-pura bisa download langsung padahal gak bisa dijamin, command ini nyusunin
-// link siap-pakai ke tool downloader pihak ketiga yang emang didedikasikan khusus buat
-// platform ini dan masih aktif jalan. User tinggal buka link-nya & klik tombol download.
-// ============================================================
-
-function scribdLinkCommand(name) {
-  return {
-    name,
-    run: async ({ args, text, reply }) => {
-      const link = getLink(args, text);
-      if (!link) return reply(`Kirim link dokumen Scribd-nya juga ya.\nContoh: *${name} https://www.scribd.com/document/123456/Judul-Dokumen*`);
-
-      // Terima subdomain apa aja (www., id., ga ada subdomain, dll), asal path-nya salah satu
-      // dari /document/, /doc/, atau /presentation/ -- itu yang didukung tool downloader-nya.
-      const match = link.match(/^https?:\/\/(?:[a-z0-9-]+\.)?scribd\.com(\/(?:document|doc|presentation)\/.+)$/i);
-      if (!match) {
-        return reply(
-          "Link ini kelihatannya bukan link dokumen Scribd yang valid.\n" +
-          "Formatnya harus /document/, /doc/, atau /presentation/ — contoh:\n" +
-          "https://www.scribd.com/document/123456/Judul-Dokumen"
-        );
-      }
-
-      const downloaderUrl = `https://www.scribd.vdownloaders.com${match[1]}`;
-      await reply(
-        `📄 *Scribd Downloader*\n\n` +
-        `Scribd sekarang diproteksi ketat, jadi bot gak bisa langsung ambilin file-nya ke chat. ` +
-        `Tapi ini link siap-pakai ke tool downloader gratis (bukan bikinan HekaBot, tapi masih aktif):\n\n` +
-        `${downloaderUrl}\n\n` +
-        `Tinggal buka link-nya, klik tombol *"Get Download Now"* di halaman itu.`
-      );
-    },
-  };
-}
-
-function slideshareLinkCommand(name) {
-  return {
-    name,
-    run: async ({ args, text, reply }) => {
-      const link = getLink(args, text);
-      if (!link) return reply(`Kirim link SlideShare-nya juga ya.\nContoh: *${name} https://www.slideshare.net/slideshow/judul/123456*`);
-
-      if (!/^https?:\/\/(?:[a-z0-9-]+\.)?slideshare\.net\//i.test(link)) {
-        return reply("Link ini kelihatannya bukan link SlideShare yang valid.");
-      }
-
-      const downloaderUrl = `https://downslides.com/en/?url=${encodeURIComponent(link)}`;
-      await reply(
-        `📊 *SlideShare Downloader*\n\n` +
-        `SlideShare sekarang bagian dari Scribd dan diproteksi ketat juga, jadi bot gak bisa langsung ambilin file-nya ke chat. ` +
-        `Tapi ini link ke tool downloader gratis (bukan bikinan HekaBot, tapi masih aktif):\n\n` +
-        `${downloaderUrl}\n\n` +
-        `Kalau link SlideShare-nya belum otomatis keisi di sana, tinggal tempel manual, terus klik Download.`
-      );
-    },
-  };
-}
-
-// ============================================================
-// YouTube (play/play2/ytmp3/ytmp4) — LOKAL via yt-dlp
+// YouTube (play/ytmp3/ytmp4) — LOKAL via yt-dlp
 // ============================================================
 
 function playCommand(name) {
@@ -200,15 +139,10 @@ module.exports = [
   ytdlpVideoCommand("ttslide"), // catatan: TikTok slideshow/foto, hasil bisa bervariasi
   ytdlpVideoCommand("twitter", ["xdl"]),
   playCommand("play"),
-  playCommand("play2"),
   ytmp3Command(),
   ytmp4Command(),
 
   // --- Masih via API siputzx (yt-dlp gak cover platform ini) ---
   videoCommand("capcutdl", "capcutdl"),
   imageCommand("telesticker", "telesticker"),
-
-  // --- Link-out ke tool downloader pihak ketiga (Scribd/SlideShare gak ada API publik) ---
-  scribdLinkCommand("scribddl"),
-  slideshareLinkCommand("slidesharedl"),
 ];

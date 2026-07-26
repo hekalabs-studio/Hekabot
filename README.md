@@ -11,14 +11,14 @@ Wajib ada di komputer/VPS kamu:
   Pilih salah satu cara:
   1. **Via package manager**: Ubuntu/Debian `sudo apt install ffmpeg -y`, Termux `pkg install ffmpeg`
   2. **Tanpa install ke sistem** (paling gampang di Windows): download dari https://www.gyan.dev/ffmpeg/builds/ (pilih **"release essentials"**), extract file zip-nya, lalu copy **`ffmpeg.exe`** DAN **`ffprobe.exe`** (ada di folder `bin` hasil extract) ke folder `bin/` di dalam project ini. Bot otomatis mendeteksi keduanya duluan sebelum coba cari di PATH sistem.
-- **yt-dlp** (untuk fitur `ytmp3`, `ytmp4`, `play`, `play2`, `ytfull`, `yttranscript` — ini dipakai supaya fitur YouTube **tidak bergantung pada API pihak ketiga yang sering berubah/rusak**)
+- **yt-dlp** (untuk fitur `ytmp3`, `ytmp4`, `play`, `ytfull`, `yttranscript` — ini dipakai supaya fitur YouTube **tidak bergantung pada API pihak ketiga yang sering berubah/rusak**)
 
   Pilih salah satu cara:
   1. **Via pip** (kalau sudah ada Python): `pip install yt-dlp`, lalu **tutup & buka ulang terminal** (PATH baru kebaca setelah restart terminal). Cek: `yt-dlp --version`
   2. **Tanpa Python** (paling gampang di Windows): download `yt-dlp.exe` dari https://github.com/yt-dlp/yt-dlp/releases/latest, lalu taruh filenya di `bin/yt-dlp.exe` di dalam folder project ini. Bot otomatis mendeteksi file itu duluan sebelum coba cari di PATH sistem — jadi gak perlu utak-atik Environment Variables Windows sama sekali.
 
-- **Real-ESRGAN** (untuk fitur `hdr`, `hdrv2`, `hdrv3` — upscale/HD gambar pakai AI, **jalan lokal, tanpa API luar**)
-  1. Download dari https://github.com/xinntao/Real-ESRGAN-ncnn-vulkan/releases (pilih file `-windows.zip`)
+- **Real-ESRGAN** (untuk fitur `hdr` — upscale/HD gambar pakai AI, **jalan lokal, tanpa API luar**)
+  1. Download dari https://github.com/xinntao/Real-ESRGAN/ (pilih file `-windows.zip`)
   2. Extract **semua isinya** (exe + folder `models` + file lain di sebelahnya) ke folder `bin/` di project ini — jangan cuma exe-nya doang, folder `models` **wajib** ikut ke-copy di folder yang sama
   3. Hasil akhirnya: `bin/realesrgan-ncnn-vulkan.exe` dan `bin/models/` ada di folder yang sama
 
@@ -74,9 +74,9 @@ untuk melihat semua fitur. Command lain dipanggil dengan prefix, contoh:
 ## 6. Tentang API downloader/tools
 
 Sebagian besar fitur sekarang **jalan lokal** (gak butuh API pihak ketiga sama sekali):
-- **yt-dlp**: `ytmp3`, `ytmp4`, `play`, `play2`, `ytfull`, `yttranscript`, **`fbdl`, `igdl`, `pinterestdl`, `threads`, `ttmp3`, `ttmp4`, `ttslide`, `twitter`** (yt-dlp support 1700+ situs, gak cuma YouTube)
+- **yt-dlp**: `ytmp3`, `ytmp4`, `play`, `ytfull`, `yttranscript`, **`fbdl`, `igdl`, `pinterestdl`, `threads`, `ttmp3`, `ttmp4`, `ttslide`, `twitter`** (yt-dlp support 1700+ situs, gak cuma YouTube)
 - **ffmpeg**: `tomp3`, `tovn`, `cutmp3`
-- **Real-ESRGAN**: `hdr`, `hdrv2`, `hdrv3`
+- **Real-ESRGAN**: `hdr`
 - **@imgly/background-removal-node**: `removebg`
 - **tesseract.js**: `ocr`
 - **Google Drive langsung** (tanpa API): `drivelink`
@@ -91,9 +91,7 @@ Sisanya masih memanggil API pihak ketiga karena platformnya gak didukung yt-dlp 
 - `cekbillpln` — butuh data real-time PLN, gak ada cara lokal
 - `recolor` — belum ada model colorize portable kayak Real-ESRGAN
 
-`scribddl` & `slidesharedl` **BUKAN** lewat sistem `apiGet`/siputzx di atas — Scribd/SlideShare sekarang diproteksi ketat dan gak punya JSON API publik buat download (tool yang beneran jalan buat itu butuh scraping halaman `/embeds/` + simulasi scroll pakai headless browser, atau bahkan cookies akun premium). Daripada pura-pura bisa padahal gak bisa dijamin, dua command ini nyusunin **link siap-pakai ke tool downloader pihak ketiga yang masih aktif** (`scribd.vdownloaders.com`, `downslides.com`) — user tinggal buka link-nya & klik tombol download di sana, bot gak coba ambil file-nya sendiri.
-
-(`rednotedl`, `spotifydl`, `teradl`, `teraview` udah dihapus dari menu — API-nya gak pernah ketemu path yang jalan, dan khusus `spotifydl` emang gak mungkin gratis karena Spotify pakai DRM.)
+(`rednotedl`, `spotifydl`, `teradl`, `teraview`, `scribddl`, `slidesharedl` udah dihapus dari menu — API-nya gak pernah ketemu path yang jalan/situsnya diproteksi ketat tanpa API publik, dan khusus `spotifydl` emang gak mungkin gratis karena Spotify pakai DRM.)
 
 Untuk mengatasi ini, sistem di `lib/api.js` punya **2 lapis coba-coba otomatis**:
 1. **Multi provider**: `config.apiBaseUrls` berisi beberapa base URL (bukan cuma satu). Kalau provider pertama down, otomatis lanjut coba provider berikutnya.
@@ -106,10 +104,9 @@ Kalau ada fitur yang masih error setelah semua kandidat & provider dicoba, bot a
 - Response/error dari masing-masing
 
 Kalau itu terjadi:
-1. Kirim pesan errornya ke saya (Claude), saya bantu cari path yang benar
-2. Atau tambah provider baru di `config.js` → `apiBaseUrls`, atau kandidat path baru di `lib/api.js` → object `CANDIDATES`
-3. Kalau baru nambah kandidat/provider, hapus dulu `lib/.resolved-endpoints.json` (kalau ada) supaya bot coba ulang dari awal
-
+1. Atau tambah provider baru di `config.js` → `apiBaseUrls`, atau kandidat path baru di `lib/api.js` → object `CANDIDATES`
+2. Kalau baru nambah kandidat/provider, hapus dulu `lib/.resolved-endpoints.json` (kalau ada) supaya bot coba ulang dari awal
+3. Tanya AI :v
 ## 7. Struktur project
 
 ```

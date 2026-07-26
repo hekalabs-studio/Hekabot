@@ -90,10 +90,8 @@ module.exports = [
     },
   },
 
-  // 4-6. hdr, hdrv2, hdrv3 - image enhance/upscale, LOKAL pakai Real-ESRGAN (lib/upscale.js)
+  // 4. hdr - image enhance/upscale, LOKAL pakai Real-ESRGAN (lib/upscale.js)
   upscaleCommand("hdr", "realesrgan-x4plus"), // foto umum
-  upscaleCommand("hdrv2", "realesrnet-x4plus"), // hasil lebih halus/natural
-  upscaleCommand("hdrv3", "realesrgan-x4plus-anime"), // khusus anime/kartun/ilustrasi
 
   // 7. infodevice
   {
