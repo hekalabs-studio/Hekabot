@@ -13,16 +13,22 @@ module.exports = [
       // (dicek via nomor/LID di lib/owner.js) -- selain owner tetap dapet AI asisten biasa.
       const senderJid = m.key.participant || m.key.remoteJid;
       const systemPrompt = isOwner(senderJid) ? config.aiOwnerSystemPrompt : config.aiSystemPrompt;
-      const answer = await askGemini(jid, text, systemPrompt);
+      // PENTING: riwayat chat di-key per PENGIRIM, bukan cuma per chat/grup. Kalau cuma per
+      // `jid`, semua orang di grup yang sama bakal share 1 riwayat -- jadi kalau owner pernah
+      // dapet persona Mitsuri di grup itu, riwayatnya ikut kebawa/"bocor" ke user lain yang
+      // nge-.ai di grup yang sama walau system prompt-nya udah bener dibedain per orang.
+      const memoryKey = `${jid}:${senderJid}`;
+      const answer = await askGemini(memoryKey, text, systemPrompt);
       reply(answer);
     },
   },
   {
     name: "resetai",
     aliases: ["clearai"],
-    run: async ({ jid, reply }) => {
-      clearHistory(jid);
-      reply("Riwayat chat AI di sini udah direset. Mulai obrolan baru!");
+    run: async ({ jid, m, reply }) => {
+      const senderJid = m.key.participant || m.key.remoteJid;
+      clearHistory(`${jid}:${senderJid}`);
+      reply("Riwayat chat AI kamu di sini udah direset. Mulai obrolan baru!");
     },
   },
 ];

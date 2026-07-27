@@ -62,22 +62,37 @@ async function startBot() {
     }
   });
 
+  // Antrian per-chat: command di chat YANG SAMA tetap diproses urut (satu-satu, gak nabrak
+  // resource kayak ffmpeg/riwayat AI/game session), TAPI chat yang BEDA diproses PARALEL
+  // -- gak saling nunggu. Sebelumnya semua pesan (lintas chat) diproses berurutan pakai satu
+  // `await` di for-loop, jadi kalau ada 1 command yang lama (download/convert/ocr dll), semua
+  // pesan lain yang masuk bersamaan dari chat lain ikut ketahan ngantri di belakangnya --
+  // user ngerasa bot "diem aja" dan baru merespon kalau pesannya diulang/dikirim lagi.
+  const chatQueues = new Map();
+  function enqueue(jid, task) {
+    const prev = chatQueues.get(jid) || Promise.resolve();
+    const next = prev.then(task, task); // tetap lanjut walau task sebelumnya gagal
+    chatQueues.set(jid, next.catch(() => {})); // simpen versi yang "settled" biar chain gak kebawa reject
+    return next;
+  }
+
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
     if (type !== "notify") return;
 
     // PENTING: Baileys kadang ngirim LEBIH DARI SATU pesan sekaligus dalam satu event ini
     // (misal kirim beberapa command cepat berturut-turut/bersamaan). Sebelumnya di sini cuma
     // ambil messages[0] doang, jadi pesan lain di batch yang sama ke-skip/gak diproses sama sekali.
-    // Diproses satu-satu (bukan Promise.all) biar urutannya tetap sesuai urutan masuk dan gak
-    // saling rebutan resource (ffmpeg/riwayat AI/dst) di waktu yang sama.
     for (const m of messages) {
       if (!m?.message || m.key.fromMe) continue;
 
-      try {
-        await handleMessage(sock, m);
-      } catch (err) {
-        console.error("Error saat handle message:", err);
-      }
+      const jid = m.key.remoteJid;
+      enqueue(jid, async () => {
+        try {
+          await handleMessage(sock, m);
+        } catch (err) {
+          console.error("Error saat handle message:", err);
+        }
+      });
     }
   });
 
