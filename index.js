@@ -5,10 +5,28 @@ const qrcode = require("qrcode-terminal");
 const config = require("./config");
 const { handleMessage } = require("./handler");
 const { handleGroupUpdate } = require("./lib/groupEvents");
+const { logSpecs } = require("./lib/systemSpecs");
 
 const logger = pino({ level: "silent" }); // ganti "info" kalau mau lihat log detail baileys
 
+// ==== JARING PENGAMAN GLOBAL ====
+// Node.js versi >=15 DEFAULT-nya langsung mematikan seluruh proses kalau ada
+// "unhandled promise rejection" (promise yang reject tapi gak ada .catch()/try-catch
+// yang nangkep). Ini penyebab paling umum bot keliatan "diem/crash diam-diam" abis
+// sebelumnya sempet jalan normal -- gak ada log jelas, proses cuma berhenti.
+// reply() di handler.js udah dibenerin supaya gak lagi memicu ini, tapi jaring pengaman
+// ini tetap dipasang di level proses biar promise LAIN (dari lib mana pun, sekarang atau
+// yang ditambahin nanti) yang kelewat tanpa await/catch juga gak sampai mematikan bot --
+// cuma di-log errornya, prosesnya tetap lanjut jalan.
+process.on("unhandledRejection", (reason) => {
+  console.error("⚠️  Unhandled promise rejection (bot tetap jalan):", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("⚠️  Uncaught exception (bot tetap jalan):", err);
+});
+
 async function startBot() {
+  logSpecs(); // log spek device + mode performa (auto/low/high) yang kepilih
   // @whiskeysockets/baileys sekarang pure ESM, jadi harus di-import secara dinamis
   // walaupun project ini CommonJS.
   const {
@@ -62,17 +80,22 @@ async function startBot() {
     }
   });
 
-  // Antrian per-chat: command di chat YANG SAMA tetap diproses urut (satu-satu, gak nabrak
-  // resource kayak ffmpeg/riwayat AI/game session), TAPI chat yang BEDA diproses PARALEL
-  // -- gak saling nunggu. Sebelumnya semua pesan (lintas chat) diproses berurutan pakai satu
-  // `await` di for-loop, jadi kalau ada 1 command yang lama (download/convert/ocr dll), semua
-  // pesan lain yang masuk bersamaan dari chat lain ikut ketahan ngantri di belakangnya --
-  // user ngerasa bot "diem aja" dan baru merespon kalau pesannya diulang/dikirim lagi.
+  // Antrian per-(chat, pengirim): command BERUNTUN dari ORANG YANG SAMA di chat yang sama
+  // tetap diproses urut (satu-satu, gak nabrak resource kayak ffmpeg/riwayat AI/game session
+  // milik dia), TAPI command dari ORANG LAIN -- walau di GRUP YANG SAMA -- diproses PARALEL,
+  // gak ikut ngantri.
+  // CATATAN: sebelumnya kunci antrean cuma `jid` (id chat/grup) doang, bukan per-pengirim.
+  // Akibatnya di grup, kalau 1 member ngirim command berat (misal .ttmp4 -- download+convert
+  // video, lumayan lama), SEMUA member lain di grup itu yang ngirim command apapun -- termasuk
+  // yang ringan kayak .menu/.brat -- ikut ketahan nunggu command berat itu selesai duluan,
+  // karena somehow dianggap "chat yang sama" padahal pengirimnya beda orang. Sekarang tiap
+  // pengirim punya antreannya sendiri-sendiri per chat, jadi command berat dari 1 orang gak lagi
+  // memblokir orang lain.
   const chatQueues = new Map();
-  function enqueue(jid, task) {
-    const prev = chatQueues.get(jid) || Promise.resolve();
+  function enqueue(queueKey, task) {
+    const prev = chatQueues.get(queueKey) || Promise.resolve();
     const next = prev.then(task, task); // tetap lanjut walau task sebelumnya gagal
-    chatQueues.set(jid, next.catch(() => {})); // simpen versi yang "settled" biar chain gak kebawa reject
+    chatQueues.set(queueKey, next.catch(() => {})); // simpen versi yang "settled" biar chain gak kebawa reject
     return next;
   }
 
@@ -86,7 +109,10 @@ async function startBot() {
       if (!m?.message || m.key.fromMe) continue;
 
       const jid = m.key.remoteJid;
-      enqueue(jid, async () => {
+      // Di grup, pengirim asli ada di `participant`; di chat pribadi sama aja dengan `jid`.
+      const senderJid = m.key.participant || jid;
+      const queueKey = `${jid}::${senderJid}`;
+      enqueue(queueKey, async () => {
         try {
           await handleMessage(sock, m);
         } catch (err) {

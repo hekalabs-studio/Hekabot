@@ -18,6 +18,15 @@ module.exports = {
   botCode: "NHA-01",
   ownerName: "Novemas Heka A",
   ownerNumber: "6289514433486",
+
+  // Mode performa -- ngatur command "berat" (removebg, hdr/upscale, togif, tomp4, bratvid,
+  // convert dokumen->pdf, pdf->docx/xlsx/pptx) nyala atau nggak, based on spek device server.
+  // "auto" = deteksi otomatis dari RAM fisik device pas bot start (lihat lib/systemSpecs.js).
+  //          RAM < 4GB -> mode "low" (command berat OFF). RAM >= 4GB -> mode "high" (semua ON).
+  // "low"  = paksa mode hemat, command berat OFF walau RAM device-nya gede.
+  // "high" = paksa semua command ON walau device speknya kecil -- HATI-HATI, RAM 2GB + Celeron
+  //          bisa ngelag parah atau bot ke-crash (out of memory) kalau tetep dipaksa nyala.
+  performanceMode: "auto",
   // WhatsApp sekarang kadang ngirim ID pengirim dalam format LID (privasi baru), bukan nomor
   // telepon biasa. Kalau fitur owner-only (.database, .status, dll) nolak kamu padahal itu
   // nomor kamu sendiri, isi LID kamu di sini -- caranya: coba command owner-only apa aja,

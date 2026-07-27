@@ -5,6 +5,7 @@ const { uploadToCatbox, downloadBuffer } = require("../lib/transfer");
 const { toMp3, toVoiceNote, toGif, stickerToMp4 } = require("../lib/ffmpeg");
 const { convertWithLibreOffice } = require("../lib/libreoffice");
 const { convertPdfWithPython } = require("../lib/pdfConvert");
+const { isLowSpec } = require("../lib/systemSpecs");
 
 /**
  * Nama file hasil convert -- dibikin SAMA kayak nama file asli yang dikirim user (cuma ekstensinya
@@ -21,6 +22,7 @@ function outputFileName(media, targetExt, fallbackBase = "hasil") {
 function pdfConvertCommand(name, scriptName, { ext, mimetype }) {
   return {
     name,
+    heavy: true, // convert via script Python (load library kayak pdf2docx/openpyxl), lumayan berat
     run: async ({ sock, m, reply }) => {
       const media = await resolveMedia(sock, m);
       if (!media || media.type !== "document" || media.ext !== "pdf") {
@@ -117,6 +119,7 @@ module.exports = [
   // sebagai video mp4 gifPlayback:true (trik "gif" WhatsApp), SAMA kayak .tomp4 tapi auto-loop+bisu.
   {
     name: "togif",
+    heavy: true, // ffmpeg encode video, berat di CPU (dan RAM buat video yang agak besar/panjang)
     run: async ({ sock, m, reply }) => {
       const media = await resolveMedia(sock, m);
       if (!media || (media.type !== "video" && media.type !== "sticker")) {
@@ -148,6 +151,7 @@ module.exports = [
   // tomp4 [Sticker] - LOKAL pakai sharp (ekstrak frame) + ffmpeg (rakit video), stiker animasi -> mp4
   {
     name: "tomp4",
+    heavy: true, // sharp (ekstrak frame) + ffmpeg (rakit video), berat
     run: async ({ sock, m, reply }) => {
       const media = await resolveMedia(sock, m);
       if (!media || media.type !== "sticker") return reply("Reply stiker (yang bergerak) dengan caption *tomp4*.");
@@ -201,6 +205,15 @@ module.exports = [
       }
 
       if (media.type === "document") {
+        // Jalur dokumen (docx/xlsx/pptx dll) manggil LibreOffice yang berat -- di-block khusus
+        // di sini (bukan tandain seluruh command "heavy") biar jalur gambar->pdf di atas (pdf-lib,
+        // ringan) tetap bisa dipakai normal walau device-nya kedeteksi low-spec.
+        if (isLowSpec) {
+          return reply(
+            "🐢 Convert dokumen ke PDF (lewat LibreOffice) dinonaktifkan otomatis di device ini karena kedeteksi low-spec.\n" +
+            "Convert *gambar* ke PDF pakai *topdf* tetap bisa dipakai normal."
+          );
+        }
         try {
           const buffer = await convertWithLibreOffice(media.buffer, media.ext, "pdf");
           return reply({ document: buffer, mimetype: "application/pdf", fileName: outputFileName(media, "pdf") });

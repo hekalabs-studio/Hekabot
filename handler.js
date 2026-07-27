@@ -18,6 +18,7 @@ const groupCommands = require("./commands/group");
 const { askGemini } = require("./lib/gemini");
 const { isRegistered } = require("./lib/userStore");
 const { isOwner } = require("./lib/owner");
+const { isLowSpec } = require("./lib/systemSpecs");
 
 // Command yang tetap bisa dipakai walau belum daftar
 const EXEMPT_COMMANDS = ["menu", "help", "daftar", "register", "signup", "profil", "profile", "akun"];
@@ -84,7 +85,22 @@ async function handleMessage(sock, m) {
   if (!text) return;
 
   const jid = m.key.remoteJid;
-  const reply = (content) => sock.sendMessage(jid, typeof content === "string" ? { text: content } : content, { quoted: m });
+  // PENTING: reply() dipakai di 70+ tempat (semua file di commands/) dan kebanyakan TIDAK
+  // di-await/di-catch di pemanggilnya (fire-and-forget). Kalau sock.sendMessage() reject
+  // (misal koneksi lagi lemot/timeout karena ping tinggi, socket putus, dsb) dan tidak ada
+  // yang nangkep, itu jadi "unhandled promise rejection". Di Node.js versi >=15, default-nya
+  // itu langsung MEMATIKAN seluruh proses bot (bukan cuma command yang gagal doang) --
+  // makanya bot bisa keliatan "centang tapi abis itu diem selamanya" tanpa error jelas di layar.
+  // Perbaikannya cukup di SATU titik pusat ini: reply() sendiri yang nangkep errornya,
+  // jadi promise yang dikembalikan ke pemanggil manapun (di-await atau tidak) tidak akan
+  // pernah reject/unhandled lagi.
+  const reply = (content) =>
+    sock
+      .sendMessage(jid, typeof content === "string" ? { text: content } : content, { quoted: m })
+      .catch((err) => {
+        console.error(`Gagal kirim balasan ke ${jid}:`, err.message);
+        return null;
+      });
 
   const lower = text.toLowerCase();
 
@@ -145,6 +161,17 @@ async function handleMessage(sock, m) {
 
   const command = allCommands.get(parsed.cmd);
   if (!command) return; // command tidak dikenal, diamkan (bisa diaktifkan pesan "command tidak ada" kalau mau)
+
+  // Command "berat" (LibreOffice/ffmpeg video/model AI removebg&upscale dkk) dimatiin otomatis
+  // kalau device server kedeteksi low-spec (lihat lib/systemSpecs.js + performanceMode di config.js),
+  // biar RAM-nya gak kewalahan sampai bot nge-lag atau crash.
+  if (command.heavy && isLowSpec) {
+    return reply(
+      `🐢 Command *${parsed.cmd}* butuh RAM/CPU lumayan besar, jadi dinonaktifkan otomatis di device ini ` +
+      `(kedeteksi low-spec). Kalau device-nya sebenernya lebih kuat dari itu, owner bisa paksa nyalain ` +
+      `lewat \`performanceMode: "high"\` di config.js.`
+    );
+  }
 
   const senderJid = m.key.participant || m.key.remoteJid;
 

@@ -28,6 +28,7 @@ module.exports = [
   // bratvid [Text] - LOKAL (render frame @napi-rs/canvas, teks justify + ffmpeg), otomatis jadi STICKER animasi.
   {
     name: "bratvid",
+    heavy: true, // render frame per-frame pakai canvas + rakit video pakai ffmpeg, berat
     run: async ({ jid, sock, text, reply }) => {
       if (!text) return reply("Tulis teksnya.\nContoh: *bratvid capek banget hari ini*");
       try {

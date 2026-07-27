@@ -43,6 +43,7 @@ function imageApiCommand(name, endpointKey, { resultType = "image" } = {}) {
 function upscaleCommand(name, model) {
   return {
     name,
+    heavy: true, // Real-ESRGAN (native binary AI upscaler) berat di CPU+RAM
     run: async ({ jid, sock, m, text, reply }) => {
       const media = await resolveMedia(sock, m);
       if (!media || media.type !== "image") return reply(`Kirim/reply gambar dengan caption *${name}* ya.`);
@@ -195,6 +196,7 @@ module.exports = [
   // 14. removebg - LOKAL pakai @imgly/background-removal-node (bukan API luar)
   {
     name: "removebg",
+    heavy: true, // load model AI (ONNX) ke RAM tiap dipanggil, paling boros di antara semua command
     run: async ({ jid, sock, m, reply }) => {
       const media = await resolveMedia(sock, m);
       if (!media || media.type !== "image") return reply("Kirim/reply gambar dengan caption *removebg* ya.");
