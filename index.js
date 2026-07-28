@@ -7,7 +7,9 @@ const { handleMessage } = require("./handler");
 const { handleGroupUpdate } = require("./lib/groupEvents");
 const { logSpecs } = require("./lib/systemSpecs");
 
-const logger = pino({ level: "silent" }); // ganti "info" kalau mau lihat log detail baileys
+const logger = pino({ level: "warn" }); // "silent" nyembunyiin SEMUA log baileys termasuk error penting
+// (misal gagal dekripsi pesan dari sender tertentu, sesi putus, dll) -- "warn" nampilin
+// yang penting-penting aja (warning + error) tanpa berisik kayak "info"/"debug".
 
 // ==== JARING PENGAMAN GLOBAL ====
 // Node.js versi >=15 DEFAULT-nya langsung mematikan seluruh proses kalau ada
@@ -49,6 +51,11 @@ async function startBot() {
     auth: state,
     browser: Browsers.ubuntu("Chrome"),
     generateHighQualityLinkPreview: true,
+    // Default bawaan Baileys keburu abis buat beberapa query internal (misal fetchProps pas
+    // baru connect) kalau koneksinya agak lambat -- muncul sebagai "Timed Out (init queries)"
+    // di log walau sebenarnya gak ngaruh ke fungsi bot (bot tetap connect & jalan normal).
+    // Dinaikin ke 90 detik biar query itu dikasih waktu lebih longgar, jadi log-nya bersih.
+    defaultQueryTimeoutMs: 90_000,
   });
 
   sock.ev.on("creds.update", saveCreds);
@@ -80,45 +87,20 @@ async function startBot() {
     }
   });
 
-  // Antrian per-(chat, pengirim): command BERUNTUN dari ORANG YANG SAMA di chat yang sama
-  // tetap diproses urut (satu-satu, gak nabrak resource kayak ffmpeg/riwayat AI/game session
-  // milik dia), TAPI command dari ORANG LAIN -- walau di GRUP YANG SAMA -- diproses PARALEL,
-  // gak ikut ngantri.
-  // CATATAN: sebelumnya kunci antrean cuma `jid` (id chat/grup) doang, bukan per-pengirim.
-  // Akibatnya di grup, kalau 1 member ngirim command berat (misal .ttmp4 -- download+convert
-  // video, lumayan lama), SEMUA member lain di grup itu yang ngirim command apapun -- termasuk
-  // yang ringan kayak .menu/.brat -- ikut ketahan nunggu command berat itu selesai duluan,
-  // karena somehow dianggap "chat yang sama" padahal pengirimnya beda orang. Sekarang tiap
-  // pengirim punya antreannya sendiri-sendiri per chat, jadi command berat dari 1 orang gak lagi
-  // memblokir orang lain.
-  const chatQueues = new Map();
-  function enqueue(queueKey, task) {
-    const prev = chatQueues.get(queueKey) || Promise.resolve();
-    const next = prev.then(task, task); // tetap lanjut walau task sebelumnya gagal
-    chatQueues.set(queueKey, next.catch(() => {})); // simpen versi yang "settled" biar chain gak kebawa reject
-    return next;
-  }
-
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
     if (type !== "notify") return;
 
     // PENTING: Baileys kadang ngirim LEBIH DARI SATU pesan sekaligus dalam satu event ini
     // (misal kirim beberapa command cepat berturut-turut/bersamaan). Sebelumnya di sini cuma
     // ambil messages[0] doang, jadi pesan lain di batch yang sama ke-skip/gak diproses sama sekali.
+    //
+    // Antrean/pembatasan command sekarang ditangani di handler.js (bukan di sini lagi), karena
+    // di sana baru ketahuan suatu command itu "berat" atau "ringan" (butuh parsing dulu).
+    // Command ringan selalu langsung diproses di sini (gak nunggu apa-apa). Command berat
+    // diatur giliran + dibatasi jumlahnya PER PENGIRIM oleh handler.js sendiri.
     for (const m of messages) {
       if (!m?.message || m.key.fromMe) continue;
-
-      const jid = m.key.remoteJid;
-      // Di grup, pengirim asli ada di `participant`; di chat pribadi sama aja dengan `jid`.
-      const senderJid = m.key.participant || jid;
-      const queueKey = `${jid}::${senderJid}`;
-      enqueue(queueKey, async () => {
-        try {
-          await handleMessage(sock, m);
-        } catch (err) {
-          console.error("Error saat handle message:", err);
-        }
-      });
+      handleMessage(sock, m).catch((err) => console.error("Error saat handle message:", err));
     }
   });
 

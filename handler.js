@@ -18,7 +18,8 @@ const groupCommands = require("./commands/group");
 const { askGemini } = require("./lib/gemini");
 const { isRegistered } = require("./lib/userStore");
 const { isOwner } = require("./lib/owner");
-const { isLowSpec } = require("./lib/systemSpecs");
+const { isLowSpec, isRamCritical, getFreeRamPercent } = require("./lib/systemSpecs");
+const { containsBannedWord } = require("./lib/moderation");
 
 // Command yang tetap bisa dipakai walau belum daftar
 const EXEMPT_COMMANDS = ["menu", "help", "daftar", "register", "signup", "profil", "profile", "akun"];
@@ -69,6 +70,28 @@ function isDuplicateMessage(messageId) {
   return false;
 }
 
+// ==== ANTREAN + LIMIT KHUSUS COMMAND BERAT (per-pengirim) ====
+// Command RINGAN gak lewat sini sama sekali -- selalu langsung diproses kapanpun, walau
+// pengirim yang sama lagi punya command berat yang jalan/ngantre.
+// Command BERAT dari orang yang SAMA tetap diproses satu-satu/runtut (gak boleh dobel jalan
+// bareng, biar gak numpuk pemakaian RAM/CPU dari 1 orang), TAPI dibatasi maksimal
+// MAX_HEAVY_PENDING (jalan + ngantre digabung) dalam satu waktu. Kalau kelebihan, langsung
+// ditolak dengan pesan suruh nunggu -- BUKAN ikut masuk antrean tanpa batas.
+const MAX_HEAVY_PENDING = 3;
+const heavyState = new Map(); // senderJid -> { pending: number, queue: Promise<void> }
+
+function runHeavy(senderJid, task) {
+  const state = heavyState.get(senderJid) || { pending: 0, queue: Promise.resolve() };
+  state.pending += 1;
+  heavyState.set(senderJid, state);
+  const finished = state.queue.then(task, task).finally(() => {
+    state.pending -= 1;
+    if (state.pending <= 0) heavyState.delete(senderJid); // beresin memori kalau udah kosong
+  });
+  state.queue = finished.catch(() => {}); // chain lanjut jalan walau task sebelumnya gagal
+  return finished;
+}
+
 function parseCommand(text) {
   const prefix = config.prefix || "";
   if (prefix && !text.startsWith(prefix)) return null;
@@ -85,6 +108,8 @@ async function handleMessage(sock, m) {
   if (!text) return;
 
   const jid = m.key.remoteJid;
+  // Di grup, pengirim asli ada di `participant`; di chat pribadi sama aja dengan `jid`.
+  const senderJid = m.key.participant || jid;
   // PENTING: reply() dipakai di 70+ tempat (semua file di commands/) dan kebanyakan TIDAK
   // di-await/di-catch di pemanggilnya (fire-and-forget). Kalau sock.sendMessage() reject
   // (misal koneksi lagi lemot/timeout karena ping tinggi, socket putus, dsb) dan tidak ada
@@ -103,6 +128,37 @@ async function handleMessage(sock, m) {
       });
 
   const lower = text.toLowerCase();
+
+  // === FILTER KATA TERLARANG ===
+  // Jalan buat SEMUA pesan teks (command maupun obrolan biasa). Kalau config.bannedWords
+  // kosong (default), fungsi containsBannedWord langsung return null dan blok ini gak ngapa2in,
+  // jadi gak ada overhead sama sekali kalau fiturnya gak dipakai.
+  const bannedWordHit = containsBannedWord(text, config.bannedWords);
+  if (bannedWordHit) {
+    const isGroup = jid.endsWith("@g.us");
+    if (isGroup) {
+      // Hapus untuk semua orang -- CUMA berhasil kalau bot berstatus ADMIN di grup ini
+      // (dibatasi WhatsApp sendiri, bukan batasan kode kita). Kalau gagal (bot bukan admin,
+      // atau sebab lain), kita tetap lanjut kirim peringatan teks di bawah -- jangan sampai
+      // gagal hapus bikin bot diem total tanpa nindak apa-apa.
+      try {
+        await sock.sendMessage(jid, {
+          delete: { remoteJid: jid, fromMe: false, id: m.key.id, participant: senderJid },
+        });
+      } catch (err) {
+        console.error(`Gagal hapus pesan kata terlarang di ${jid} (kemungkinan bot bukan admin):`, err.message);
+      }
+      await reply({
+        text: `⚠️ @${senderJid.split("@")[0]} pesannya mengandung kata yang gak pantas. Mohon jaga sopan santun di grup ya.`,
+        mentions: [senderJid],
+      });
+    } else {
+      // Di luar grup, WhatsApp SAMA SEKALI gak ngizinin hapus pesan orang lain -- apapun
+      // statusnya. Paling cuma bisa dikasih peringatan teks.
+      await reply("⚠️ Tolong jangan pakai kata-kata kasar ya.");
+    }
+    return; // stop di sini, jangan lanjut proses command/AI-chat dari pesan yang kena filter ini
+  }
 
   // "menu" tanpa prefix supaya gampang dipanggil -- kirim BANNER dengan caption daftar menu
   // (jadi satu pesan aja, bukan gambar + teks terpisah)
@@ -173,8 +229,6 @@ async function handleMessage(sock, m) {
     );
   }
 
-  const senderJid = m.key.participant || m.key.remoteJid;
-
   // Command khusus owner
   if (command.ownerOnly && !isOwner(senderJid)) {
     console.log(`[owner-check] Ditolak. senderJid = "${senderJid}", ownerNumber di config.js = "${config.ownerNumber}"`);
@@ -202,23 +256,55 @@ async function handleMessage(sock, m) {
     }
   }
 
-  // Kirim react emoji ke pesan user (bukan reply teks baru) -- dipakai buat kasih status
-  // proses command tanpa nambah-nambah chat dengan pesan "sedang diproses" dkk.
-  const react = (emoji) =>
-    sock.sendMessage(jid, { react: { text: emoji, key: m.key } }).catch((err) => {
-      console.error("Gagal kirim react:", err.message);
-    });
+  // Jalanin command sebenarnya: react ⏳ (nandain lagi diproses) -> command.run() -> react ✅/❌.
+  // Dipisah jadi fungsi sendiri karena dipanggil dari 2 jalur: langsung (command ringan)
+  // atau lewat antrean runHeavy (command berat).
+  const runCommand = async () => {
+    const react = (emoji) =>
+      sock.sendMessage(jid, { react: { text: emoji, key: m.key } }).catch((err) => {
+        console.error("Gagal kirim react:", err.message);
+      });
+    try {
+      await sock.sendPresenceUpdate("composing", jid);
+      await react("⏳"); // tandain pesan user lagi diproses
+      await command.run({ sock, m, jid, args: parsed.args, text: parsed.text, reply });
+      await react("✅"); // command sukses dijalankan
+    } catch (err) {
+      console.error(`Error di command "${parsed.cmd}":`, err.message);
+      await react("❌"); // command gagal
+      await reply(`❌ Gagal menjalankan *${parsed.cmd}*.\n${err.message}`);
+    }
+  };
 
-  try {
-    await sock.sendPresenceUpdate("composing", jid);
-    await react("⏳"); // tandain pesan user lagi diproses
-    await command.run({ sock, m, jid, args: parsed.args, text: parsed.text, reply });
-    await react("✅"); // command sukses dijalankan
-  } catch (err) {
-    console.error(`Error di command "${parsed.cmd}":`, err.message);
-    await react("❌"); // command gagal
-    await reply(`❌ Gagal menjalankan *${parsed.cmd}*.\n${err.message}`);
+  if (!command.heavy) {
+    // Command ringan: SELALU langsung diproses, gak peduli pengirim ini lagi punya
+    // command berat yang jalan/ngantre atau nggak.
+    return runCommand();
   }
+
+  // Command berat: cek dulu apa pengirim ini udah kena limit (jalan + ngantre digabung).
+  const state = heavyState.get(senderJid);
+  if (state && state.pending >= MAX_HEAVY_PENDING) {
+    return reply(
+      `⏳ Kamu masih punya ${state.pending} command berat yang lagi jalan/ngantre ` +
+      `(maksimal ${MAX_HEAVY_PENDING} bersamaan). Tunggu salah satu selesai dulu ya baru kirim command berat lagi.\n` +
+      `Command ringan lain (menu, brat, dll) tetap bisa kamu pakai kok selagi nunggu.`
+    );
+  }
+
+  // Cek RAM device SAAT INI JUGA -- ini beda dari limit di atas (yang ngitung punya SATU orang).
+  // Ini ngecek RAM SELURUH device, jadi bisa nolak walau si pengirim belum kena limit
+  // personalnya sendiri, misal kondisinya RAM lagi penuh gara-gara banyak ORANG LAIN yang
+  // numpuk command berat bersamaan. Tujuannya: kasih tau user daripada bot jadi lemot/nge-hang
+  // diam-diam kalau dipaksa proses terus, dan biar mereka gak spam ngirim ulang command yang sama.
+  if (isRamCritical()) {
+    return reply(
+      `🧠 RAM device lagi penuh (cuma tersisa ~${getFreeRamPercent().toFixed(0)}% kosong). ` +
+      `Tunggu proses yang lagi jalan selesai dulu ya, baru coba lagi -- biar bot-nya gak makin berat/nge-hang.`
+    );
+  }
+
+  return runHeavy(senderJid, runCommand);
 }
 
 module.exports = { handleMessage, allCommands };
