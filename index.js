@@ -2,6 +2,7 @@ const { Boom } = require("@hapi/boom");
 const pino = require("pino");
 const path = require("path");
 const qrcode = require("qrcode-terminal");
+const NodeCache = require("node-cache");
 const config = require("./config");
 const { handleMessage } = require("./handler");
 const { handleGroupUpdate } = require("./lib/groupEvents");
@@ -44,6 +45,14 @@ async function startBot() {
   );
   const { version } = await fetchLatestBaileysVersion();
 
+  // Dipakai Baileys buat nyimpen HITUNGAN percobaan "retry receipt" (minta kirim ulang
+  // pesan yang gagal di-dekripsi, misal error "No session found to decrypt message" --
+  // ini kejadian normal kalau sesi enkripsi ke pengirim tertentu belum "matang", paling
+  // sering abis bot baru restart). Tanpa cache ini, mekanisme retry bawaan Baileys kurang
+  // konsisten. INI GAK BIKIN 0% GAGAL TOTAL -- protokol enkripsinya sendiri emang gitu --
+  // tapi bikin bot lebih andal minta+dapet kiriman ulang otomatis dari HP pengirim.
+  const msgRetryCounterCache = new NodeCache();
+
   const sock = makeWASocket({
     version,
     logger,
@@ -56,6 +65,7 @@ async function startBot() {
     // di log walau sebenarnya gak ngaruh ke fungsi bot (bot tetap connect & jalan normal).
     // Dinaikin ke 90 detik biar query itu dikasih waktu lebih longgar, jadi log-nya bersih.
     defaultQueryTimeoutMs: 90_000,
+    msgRetryCounterCache,
   });
 
   sock.ev.on("creds.update", saveCreds);

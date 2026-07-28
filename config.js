@@ -57,6 +57,36 @@ module.exports = {
   "https://widipe.com",
   "https://api.caliph.biz.id"
 ],
+  // === Filter kata terlarang ===
+  // Isi daftar kata di sini (huruf besar/kecil gak masalah, dicek case-insensitive).
+  // Kosongkan array ini (biarin []) buat MATIIN fitur ini total.
+  // Deteksinya KATA UTUH (dipisah spasi/tanda baca) -- lihat lib/moderation.js kalau mau
+  // ubah cara deteksinya.
+  //
+  // Cara kerja kalau ketemu kata terlarang:
+  //  - Di GRUP dan bot berstatus ADMIN  -> pesannya dihapus untuk semua orang + kirim peringatan.
+  //  - Di GRUP tapi bot BUKAN admin     -> gagal dihapus (dibatasi WhatsApp sendiri), tapi tetap
+  //                                        kirim peringatan teks.
+  //  - Di LUAR grup (chat pribadi)      -> WhatsApp SAMA SEKALI GAK NGIZININ hapus pesan orang
+  //                                        lain, jadi cuma dikirimin peringatan teks.
+  bannedWords: [
+     "Sukanto",
+     "Jembut",
+     "Kontol",
+     "Hermin",
+     "Jancok",
+     "Tempek",
+     "sukanto",
+     "jembut",
+     "kontol",
+     "hermin",
+     "jancok",
+     "tempek",
+     "ngentot",
+     "Ngentot",
+     "Anjing",
+     "anjing",
+  ],
 
   // Folder session Baileys
   sessionPath: "./session",
@@ -91,22 +121,5 @@ module.exports = {
   // Kalau true: bot otomatis kasih salam + tutorial pas ada member baru masuk grup,
   // dan salam perpisahan pas ada yang keluar.
   groupWelcomeEnabled: true,
-
-  // === Filter kata terlarang ===
-  // Isi daftar kata di sini (huruf besar/kecil gak masalah, dicek case-insensitive).
-  // Kosongkan array ini (biarin []) buat MATIIN fitur ini total.
-  // Deteksinya KATA UTUH (dipisah spasi/tanda baca) -- lihat lib/moderation.js kalau mau
-  // ubah cara deteksinya.
-  //
-  // Cara kerja kalau ketemu kata terlarang:
-  //  - Di GRUP dan bot berstatus ADMIN  -> pesannya dihapus untuk semua orang + kirim peringatan.
-  //  - Di GRUP tapi bot BUKAN admin     -> gagal dihapus (dibatasi WhatsApp sendiri), tapi tetap
-  //                                        kirim peringatan teks.
-  //  - Di LUAR grup (chat pribadi)      -> WhatsApp SAMA SEKALI GAK NGIZININ hapus pesan orang
-  //                                        lain, jadi cuma dikirimin peringatan teks.
-  bannedWords: [
-    // "contohkata1",
-    // "contohkata2",
-  ],
 
 };
