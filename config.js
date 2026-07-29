@@ -57,6 +57,16 @@ module.exports = {
   "https://widipe.com",
   "https://api.caliph.biz.id"
 ],
+
+  // Folder session Baileys
+  sessionPath: "./session",
+
+  // Pin versi WhatsApp Web manual -- CUMA isi ini kalau auto-fetch (null) kebukti gagal
+  // (405 Connection Failure) DI KAMU. Kalau auto-fetch masih bisa nampilin QR normal (kayak
+  // biasanya), BIARIN NULL -- jangan asal pin ke versi random dari internet, soalnya versi
+  // yang "cocok" itu beda-beda tiap orang/waktu dan gampang basi.
+  waVersion: null,
+
   // === Filter kata terlarang ===
   // Isi daftar kata di sini (huruf besar/kecil gak masalah, dicek case-insensitive).
   // Kosongkan array ini (biarin []) buat MATIIN fitur ini total.
@@ -88,12 +98,19 @@ module.exports = {
      "anjing",
   ],
 
-  // Folder session Baileys
-  sessionPath: "./session",
-
   // === Google Gemini AI (opsional) ===
   // Isi API key kamu dari https://aistudio.google.com/apikey buat aktifin fitur .ai
+  // (GRATIS, gak butuh kartu kredit -- yang dibatasi cuma jumlah request per menit, bukan saldo)
   geminiApiKey: "",
+
+  // OPSIONAL: kalau punya lebih dari 1 API key gratis (misal dari beberapa akun Google beda),
+  // isi di sini biar bot otomatis GANTIAN pakai key yang lain kalau salah satu lagi kena limit
+  // tier gratis. Masih 100% gratis, cuma manfaatin jatah gratis dari beberapa akun.
+  // Kalau diisi, ini yang dipakai (geminiApiKey di atas diabaikan). Biarin array kosong ([])
+  // kalau cuma punya 1 key -- gak wajib diisi.
+  // Contoh: geminiApiKeys: ["key_akun_1", "key_akun_2", "key_akun_3"],
+  geminiApiKeys: [],
+
   geminiModel: "gemini-flash-latest", // alias resmi Google, otomatis ke model flash terbaru
   aiSystemPrompt:
     "Kamu adalah asisten AI ramah dan santai bernama HekaBot. Jawab pakai Bahasa Indonesia yang natural, " +
@@ -121,5 +138,7 @@ module.exports = {
   // Kalau true: bot otomatis kasih salam + tutorial pas ada member baru masuk grup,
   // dan salam perpisahan pas ada yang keluar.
   groupWelcomeEnabled: true,
+
+  
 
 };

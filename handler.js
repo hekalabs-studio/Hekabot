@@ -65,7 +65,10 @@ function isDuplicateMessage(messageId) {
   for (const [id, ts] of recentlyProcessed) {
     if (now - ts > 2 * 60 * 1000) recentlyProcessed.delete(id);
   }
-  if (recentlyProcessed.has(messageId)) return true;
+  if (recentlyProcessed.has(messageId)) {
+    console.log(`[dedup] pesan id=${messageId} dianggap DUPLIKAT, gak diproses ulang.`);
+    return true;
+  }
   recentlyProcessed.set(messageId, now);
   return false;
 }
@@ -265,8 +268,16 @@ async function handleMessage(sock, m) {
         console.error("Gagal kirim react:", err.message);
       });
     try {
-      await sock.sendPresenceUpdate("composing", jid);
-      await react("⏳"); // tandain pesan user lagi diproses
+      // PENTING: presence update ("mengetik...") sama react ⏳ ini cuma kosmetik, BUKAN
+      // sesuatu yang command butuh buat bisa jalan. Sebelumnya dua-duanya di-`await` DULU
+      // sebelum command.run() dipanggil -- artinya kalau salah satu SANGKUT (bukan error,
+      // cuma gak pernah selesai/resolve, misal gara-gara koneksi WA lagi lag dikit), maka
+      // command-nya SAMA SEKALI GAK PERNAH MULAI JALAN, padahal user udah kirim commandnya.
+      // Ini kejadian ke SEMUA command (bukan cuma yang berat) karena semua command lewat sini.
+      // Fix: jangan ditunggu (gak di-`await`) -- jalanin di background, command-nya langsung
+      // eksekusi gak usah nunggu dua hal kosmetik ini beres duluan.
+      sock.sendPresenceUpdate("composing", jid).catch(() => {});
+      react("⏳"); // sengaja gak di-await
       await command.run({ sock, m, jid, args: parsed.args, text: parsed.text, reply });
       await react("✅"); // command sukses dijalankan
     } catch (err) {

@@ -1,6 +1,6 @@
 const { makeSticker } = require("../lib/stickerMaker");
 const { makeQuoteCardV2, overlayMemeText, overlayQuoteBar, addWatermark } = require("../lib/textImage");
-const { makeBratImage } = require("../lib/bratCanvas");
+const { makeBratImageAsync } = require("../lib/bratCanvasAsync");
 const { makeBratVideo } = require("../lib/bratvid");
 const { resolveMedia, getProfilePicture } = require("../lib/media");
 const config = require("../config");
@@ -15,7 +15,7 @@ module.exports = [
       const neon = /^hijau\s+/i.test(text);
       const cleanText = neon ? text.replace(/^hijau\s+/i, "") : text;
       try {
-        const imageBuffer = await makeBratImage(cleanText, { neon });
+        const imageBuffer = await makeBratImageAsync(cleanText, { neon });
         const stickerBuf = await makeSticker(imageBuffer, { pack: config.botName, author: config.ownerName });
         await reply({ sticker: stickerBuf });
       } catch (error) {

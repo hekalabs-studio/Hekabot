@@ -5,6 +5,7 @@ const qrcode = require("qrcode-terminal");
 const NodeCache = require("node-cache");
 const config = require("./config");
 const { handleMessage } = require("./handler");
+const { getText } = require("./lib/media");
 const { handleGroupUpdate } = require("./lib/groupEvents");
 const { logSpecs } = require("./lib/systemSpecs");
 
@@ -28,6 +29,13 @@ process.on("uncaughtException", (err) => {
   console.error("⚠️  Uncaught exception (bot tetap jalan):", err);
 });
 
+// ==== BACKOFF RECONNECT ====
+// Dipakai buat ngitung berapa kali GAGAL KONEK BERTURUT-TURUT (bukan cuma disconnect biasa
+// abis udah pernah konek sukses). Kalau gagal berturut-turut, jeda sebelum coba lagi makin
+// lama (bukan diem 5 detik doang tiap kali) -- soalnya nembak reconnect rapat-rapat ke server
+// WhatsApp pas lagi bermasalah bisa bikin akunnya makin dicurigain sebagai bot/otomatisasi.
+let consecutiveFailures = 0;
+
 async function startBot() {
   logSpecs(); // log spek device + mode performa (auto/low/high) yang kepilih
   // @whiskeysockets/baileys sekarang pure ESM, jadi harus di-import secara dinamis
@@ -43,7 +51,15 @@ async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState(
     path.join(__dirname, config.sessionPath.replace("./", ""))
   );
-  const { version } = await fetchLatestBaileysVersion();
+  // === FIX buat error "405 Connection Failure" ===
+  // Ini bug lagi di Baileys sendiri (dilaporkan banyak orang, per pertengahan 2026 belum ada
+  // fix resmi): versi WhatsApp Web yang di-fetch OTOMATIS lewat fetchLatestBaileysVersion()
+  // kadang justru versi yang lagi DITOLAK server WhatsApp, jadi konek gagal terus sebelum
+  // sempat nampilin QR. Workaround yang kebukti kerja buat banyak orang: PIN versi manual
+  // lewat config.waVersion, bukan pakai hasil fetch otomatis.
+  // Kalau config.waVersion dikosongin (null), fallback ke cara lama (fetch otomatis).
+  const version = config.waVersion || (await fetchLatestBaileysVersion()).version;
+  console.log(`   Pakai versi WhatsApp Web: ${version.join(".")}${config.waVersion ? " (pinned manual)" : " (auto-fetch)"}`);
 
   // Dipakai Baileys buat nyimpen HITUNGAN percobaan "retry receipt" (minta kirim ulang
   // pesan yang gagal di-dekripsi, misal error "No session found to decrypt message" --
@@ -81,10 +97,60 @@ async function startBot() {
 
     if (connection === "close") {
       const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
+      const errorMsg = lastDisconnect?.error?.message || "(gak ada pesan error)";
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-      console.log("Koneksi terputus.", shouldReconnect ? "Menyambung ulang..." : "Logout, hapus folder session lalu jalankan ulang.");
-      if (shouldReconnect) startBot();
+
+      // Nama-nama reason code Baileys, biar log-nya kebaca manusia (bukan cuma angka doang)
+      const reasonNames = {
+        [DisconnectReason.badSession]: "badSession (401) -- session korup, biasanya perlu scan ulang QR",
+        [DisconnectReason.connectionClosed]: "connectionClosed (428) -- koneksi ditutup, biasanya sementara",
+        [DisconnectReason.connectionLost]: "connectionLost (408) -- koneksi ke server WA putus, biasanya sementara/internet",
+        [DisconnectReason.connectionReplaced]: "connectionReplaced (440) -- akun WA dipakai buka sesi LAIN di tempat lain (misal WA Web/device lain login pakai sesi yang sama), bot ke-kick",
+        [DisconnectReason.loggedOut]: "loggedOut (401) -- akun di-unlink/logout dari WhatsApp, HARUS scan QR ulang",
+        [DisconnectReason.restartRequired]: "restartRequired (515) -- normal, biasanya cuma sekali abis konek pertama kali",
+        [DisconnectReason.timedOut]: "timedOut (408) -- koneksi timeout, biasanya sementara/internet lambat",
+        [DisconnectReason.multideviceMismatch]: "multideviceMismatch (411) -- versi Baileys gak cocok/kadaluarsa, coba update baileys",
+        [DisconnectReason.forbidden]: "forbidden (403) -- WhatsApp nolak koneksi, bisa jadi akun kena batasan/flag dari WA",
+        405: "405 Connection Failure -- server WhatsApp nolak koneksi dari awal (SEBELUM sempat login/QR). " +
+          "Ini bug yang lagi dilaporin banyak orang ke Baileys (belum ada fix resmi dari mereka per skrip ini dibuat). " +
+          "Coba: pastiin config.waVersion keisi, coba jaringan lain (hotspot HP), atau tunggu beberapa jam.",
+      };
+      const reasonLabel = reasonNames[statusCode] || `kode ${statusCode} (gak dikenali)`;
+
+      console.log(`Koneksi terputus. Alasan: ${reasonLabel}`);
+      console.log(`   Detail error: ${errorMsg}`);
+
+      if (!shouldReconnect) {
+        console.log("Logout, hapus folder session lalu jalankan ulang.");
+        return;
+      }
+
+      if (statusCode === DisconnectReason.restartRequired) {
+        // Normal, biasanya cuma sekali abis konek pertama kali -- gak dihitung sebagai kegagalan.
+        console.log("Menyambung ulang...");
+        startBot();
+        return;
+      }
+
+      // Belum pernah konek sukses / gagal lagi setelah sempat sukses -> hitung sebagai kegagalan
+      // beruntun, dan jeda sebelum reconnect MAKIN LAMA tiap gagal lagi (bukan diem 5 detik terus
+      // menerus tanpa henti) -- biar gak dianggap otomatisasi mencurigakan sama WhatsApp kalau
+      // penyebabnya emang lagi ada masalah beneran (misal bug 405 di atas).
+      consecutiveFailures++;
+      const MAX_AUTO_RETRIES = 6;
+      if (consecutiveFailures > MAX_AUTO_RETRIES) {
+        console.log(
+          `\n⛔ Udah gagal konek ${consecutiveFailures}x berturut-turut. Bot BERHENTI nyoba otomatis dulu, ` +
+          "biar akun WA-nya gak makin dicurigain WhatsApp gara-gara nembak reconnect terus-terusan.\n" +
+          "   Cek dulu penyebabnya (lihat 'Alasan' di atas), baru jalankan ulang manual (npm start) kalau udah kebenerin.\n"
+        );
+        return;
+      }
+      const reconnectDelayMs = Math.min(5_000 * 2 ** (consecutiveFailures - 1), 5 * 60_000); // 5s, 10s, 20s, ... maks 5 menit
+      console.log(`   Percobaan ke-${consecutiveFailures}/${MAX_AUTO_RETRIES}. Nyambung ulang dalam ${Math.round(reconnectDelayMs / 1000)} detik...`);
+      setTimeout(startBot, reconnectDelayMs);
     } else if (connection === "open") {
+      consecutiveFailures = 0; // reset -- udah konek sukses lagi
       console.log(`\n✅ ${config.botName} berhasil terhubung ke WhatsApp!\n`);
     }
   });
@@ -108,9 +174,28 @@ async function startBot() {
     // di sana baru ketahuan suatu command itu "berat" atau "ringan" (butuh parsing dulu).
     // Command ringan selalu langsung diproses di sini (gak nunggu apa-apa). Command berat
     // diatur giliran + dibatasi jumlahnya PER PENGIRIM oleh handler.js sendiri.
+    // LOG DIAGNOSTIK: nyatet SETIAP pesan yang beneran nyampe dari Baileys, sebelum diproses
+    // apa-apa. Ini buat mastiin kalau ada command yang "gak dijawab" pas bareng2, apa pesannya
+    // emang gak pernah sampai ke bot sama sekali (berarti masalah di sesi WhatsApp/Baileys,
+    // BUKAN di kode bot) atau pesannya sampai tapi macet di suatu tempat pas diproses.
+    // Kalau semua pesan yang dikirim user muncul di log ini dengan id BEDA-BEDA tapi ada yang
+    // gak pernah kelar diproses/dibales, baru itu tandanya ada bug beneran di kode. Kalau ada
+    // pesan yang KELIATAN dikirim user tapi TIDAK PERNAH muncul sama sekali di log ini,
+    // berarti WhatsApp/Baileys sendiri yang gak nerusin pesannya ke bot (di luar kendali kode ini).
+    console.log(
+      `[upsert] batch berisi ${messages.length} pesan${messages.length > 1 ? " (>1 pesan bareng satu event!)" : ""}`
+    );
     for (const m of messages) {
-      if (!m?.message || m.key.fromMe) continue;
-      handleMessage(sock, m).catch((err) => console.error("Error saat handle message:", err));
+      const from = m?.key?.participant || m?.key?.remoteJid || "?";
+      const preview = getText(m).slice(0, 60).replace(/\n/g, " ") || "(non-teks)";
+      if (!m?.message || m.key.fromMe) {
+        console.log(`[upsert] lewatin pesan id=${m?.key?.id} dari=${from} (fromMe atau kosong)`);
+        continue;
+      }
+      console.log(`[upsert] terima pesan id=${m.key.id} dari=${from} teks="${preview}"`);
+      handleMessage(sock, m)
+        .then(() => console.log(`[upsert] selesai proses id=${m.key.id}`))
+        .catch((err) => console.error(`[upsert] Error saat handle message id=${m.key.id}:`, err));
     }
   });
 
