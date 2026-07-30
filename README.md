@@ -83,7 +83,12 @@ Sebagian besar fitur sekarang **jalan lokal** (gak butuh API pihak ketiga sama s
 - **catbox.moe** (upload publik, bukan API tebak-tebakan): `tourl`
 - **@damarkuncoro/posindonesia** (dataset offline ~80.000+ data): `kodepos`
 - **sharp / wa-sticker-formatter**: `sticker`, `take`, `swm`, `brat`, `bratvid`, `qc`, `smeme`, `squote` (semua sticker menu, jalan lokal)
-- Murni lokal tanpa dependency luar: `kalkukator`, `infodevice`, `readmore`
+- Murni lokal tanpa dependency luar: `kalkukator`, `readmore`
+- `infodevice` — LOKAL, pakai `getDevice()` dari Baileys buat cek platform WhatsApp pengirim
+  (Android/iOS/Web/Desktop). Sekarang buat cek device SI PENGIRIM, bukan spek server bot lagi —
+  spek server sekarang dilihat lewat `.bot` (ringkas) atau `.resource` (lengkap, owner only).
+  Catatan: WhatsApp gak pernah kasih data hardware asli (RAM/prosesor/model HP) ke bot manapun,
+  jadi ini cuma bisa deteksi APLIKASI-nya, bukan spek fisik HP-nya.
 - Quote generator API terpisah (bukan siputzx, biasanya stabil): `iqc`
 
 Sisanya masih memanggil API pihak ketiga karena platformnya gak didukung yt-dlp / butuh data real-time:
@@ -174,6 +179,18 @@ Cara pakai:
 
 Bot inget konteks obrolan sebelumnya (10 giliran terakhir) selama belum di-reset atau bot di-restart.
 
+**`.solve` — kerjain soal dari FOTO** (pakai model vision Gemini, `gemini-flash-latest` udah support gambar):
+```
+.solve                              ← kirim/reply foto, caption .solve doang
+.solve jelasin caranya aja          ← boleh tambah instruksi setelah .solve
+```
+Kirim foto langsung dengan caption `.solve`, atau reply foto yang udah ada di chat lalu ketik `.solve`.
+Foto-nya **bebas jenis apa aja** — bukan cuma soal matematika: soal pelajaran (fisika, kimia, bahasa, dll),
+potongan kode/pesan error, captcha/teka-teki, tabel yang perlu dihitung, formulir, tulisan tangan, dan
+lain-lain. Beda dari `.ai`, `.solve` gak nyambung ke riwayat obrolan (sekali jalan per-foto) dan pakai
+system prompt sendiri (`solveSystemPrompt` di `config.js`) yang didesain buat "kerjain apa yang ada di foto",
+bukan ngobrol bebas.
+
 **Opsional — mode auto-chat** (bot otomatis bales SEMUA chat pribadi kayak asisten AI, gak perlu ketik `.ai` dulu): buka `config.js`, ubah:
 ```js
 aiAutoChatPrivate: true,
@@ -187,6 +204,7 @@ Ini **cuma aktif di chat pribadi** (japri), bukan di grup — biar bot gak spam 
 | `wikipedia` | Wikipedia REST API resmi | ✅ Solid, gak akan bermasalah |
 | `cuaca` | Open-Meteo (gratis, tanpa key) | ✅ Solid, gak akan bermasalah |
 | `ai` / `resetai` | Gemini API kamu | ✅ Solid (asal API key diisi, lihat bagian 10) |
+| `solve` | Gemini API kamu (vision) | ✅ Solid (asal API key diisi, lihat bagian 10) |
 | `alkitab` | SABDA (alkitab.sabda.org) | ⚠️ Bukan API resmi/JSON, hasil di-parse dari HTML — bisa berubah sewaktu-waktu |
 | `kbbi` | Scraping typoonline.com | ⚠️ Paling rawan putus, bergantung struktur halaman pihak ketiga |
 | `lirik` | lyrics.ovh | ⚠️ Wajib format *Artis - Judul*; hasil DIBATASI cuma cuplikan (bukan lirik lengkap, demi hak cipta) |
@@ -217,7 +235,7 @@ Fitur umum/info bot, plus sistem pendaftaran dipindah ke sini:
 
 | Fitur | Fungsi |
 |---|---|
-| `bot` | Info singkat bot (uptime, owner, dll) |
+| `bot` | Info singkat bot (uptime, owner) + sistem server (platform/CPU/RAM/Node.js) |
 | `daftar` | Daftar (wajib sebelum pakai fitur lain) |
 | `database` | Statistik: jumlah user terdaftar, total fitur |
 | `hapusakun` | Batal daftar |

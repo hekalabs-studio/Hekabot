@@ -12,8 +12,6 @@ const { uploadToCatbox } = require("../lib/transfer");
 const { cutAudio } = require("../lib/ffmpeg");
 const { searchKodepos, formatKodeposResults } = require("../lib/kodepos");
 
-const startTime = Date.now();
-
 /** Ambil gambar (langsung/reply) -> upload sementara -> proses via API -> kirim balik */
 function imageApiCommand(name, endpointKey, { resultType = "image" } = {}) {
   return {
@@ -94,21 +92,41 @@ module.exports = [
   // 4. hdr - image enhance/upscale, LOKAL pakai Real-ESRGAN (lib/upscale.js)
   upscaleCommand("hdr", "realesrgan-x4plus"), // foto umum
 
-  // 7. infodevice
+  // 7. infodevice - cek device/platform WhatsApp yang dipakai USER (bukan device/server bot lagi --
+  // buat info spek server bot sekarang pakai *.bot* / *.resource*).
+  //
+  // PENTING (batasan protokol WhatsApp, BUKAN batasan kode kita): WhatsApp SAMA SEKALI GAK PERNAH
+  // ngirim data hardware asli (RAM, chipset/prosesor, model HP, kapasitas storage, dst) ke bot
+  // manapun -- gak ada satupun bot WhatsApp (Baileys/library lain) yang bisa beneran baca spek
+  // fisik HP orang lain, itu di luar apa yang diizinkan protokolnya. Yang BISA dideteksi cuma
+  // APLIKASI WhatsApp yang dipakai (Android/iOS/Web/Desktop), dibaca dari format ID pesannya
+  // pakai getDevice() dari Baileys.
   {
     name: "infodevice",
-    run: async ({ reply }) => {
-      const uptimeSec = Math.floor((Date.now() - startTime) / 1000);
-      const h = Math.floor(uptimeSec / 3600);
-      const mnt = Math.floor((uptimeSec % 3600) / 60);
-      const s = uptimeSec % 60;
+    aliases: ["cekdevice", "cekhp"],
+    run: async ({ m, reply }) => {
+      const { getDevice } = await import("@whiskeysockets/baileys");
+      let platform = "unknown";
+      try {
+        platform = getDevice(m.key.id) || "unknown";
+      } catch {
+        // biarin default "unknown" kalau format ID-nya gak dikenali
+      }
+      const PLATFORM_LABEL = {
+        android: "📱 Android",
+        ios: "🍎 iOS (iPhone/iPad)",
+        web: "💻 WhatsApp Web (browser)",
+        desktop: "🖥️ WhatsApp Desktop (aplikasi)",
+        unknown: "❓ Tidak diketahui",
+      };
       reply(
-        `『 𝗜𝗡𝗙𝗢 𝗗𝗘𝗩𝗜𝗖𝗘 』\n` +
-        `• Bot     : ${config.botName}\n` +
-        `• Platform: ${process.platform}\n` +
-        `• Node.js : ${process.version}\n` +
-        `• RAM     : ${(process.memoryUsage().rss / 1024 / 1024).toFixed(1)} MB\n` +
-        `• Uptime  : ${h}j ${mnt}m ${s}d`
+        `『 𝗜𝗡𝗙𝗢 𝗗𝗘𝗩𝗜𝗖𝗘 𝗞𝗔𝗠𝗨 』\n` +
+        `• Nama       : ${m.pushName || "-"}\n` +
+        `• Kirim dari : ${PLATFORM_LABEL[platform] || platform}\n\n` +
+        `⚠️ *Catatan*: ini BUKAN spek hardware asli HP kamu (RAM/prosesor/model/storage). WhatsApp ` +
+        `emang gak pernah ngasih data hardware kayak itu ke bot manapun -- yang kebaca cuma APLIKASI ` +
+        `WhatsApp yang kamu pakai (Android/iOS/Web/Desktop). Mau lihat spek server tempat bot ini jalan? ` +
+        `Pakai *.bot*.`
       );
     },
   },

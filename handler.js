@@ -11,6 +11,7 @@ const stickerCommands = require("./commands/sticker");
 const funCommands = require("./commands/fun");
 const gameCommands = require("./commands/game");
 const aiCommands = require("./commands/ai");
+const solveCommands = require("./commands/solve");
 const internetCommands = require("./commands/internet");
 const authCommands = require("./commands/auth");
 const mainCommands = require("./commands/main");
@@ -46,6 +47,7 @@ for (const cmd of [
   ...funCommands,
   ...gameCommands,
   ...aiCommands,
+  ...solveCommands,
   ...internetCommands,
   ...authCommands,
   ...mainCommands,
@@ -151,14 +153,21 @@ async function handleMessage(sock, m) {
       } catch (err) {
         console.error(`Gagal hapus pesan kata terlarang di ${jid} (kemungkinan bot bukan admin):`, err.message);
       }
-      await reply({
-        text: `⚠️ @${senderJid.split("@")[0]} pesannya mengandung kata yang gak pantas. Mohon jaga sopan santun di grup ya.`,
-        mentions: [senderJid],
-      });
+      // SENGAJA gak pakai reply()/quoted -- pesannya udah dihapus, jadi kirim pemberitahuan
+      // sebagai pesan BIASA (berdiri sendiri), bukan reply/quote ke pesan yang kena banned.
+      await sock
+        .sendMessage(jid, {
+          text: `⚠️ @${senderJid.split("@")[0]} pesannya mengandung kata yang gak pantas dan sudah dihapus. Mohon jaga sopan santun di grup ya.`,
+          mentions: [senderJid],
+        })
+        .catch((err) => console.error(`Gagal kirim pemberitahuan kata terlarang ke ${jid}:`, err.message));
     } else {
       // Di luar grup, WhatsApp SAMA SEKALI gak ngizinin hapus pesan orang lain -- apapun
-      // statusnya. Paling cuma bisa dikasih peringatan teks.
-      await reply("⚠️ Tolong jangan pakai kata-kata kasar ya.");
+      // statusnya. Paling cuma bisa dikasih peringatan teks -- tetap sebagai pesan biasa,
+      // bukan reply/quote ke pesan yang kena banned.
+      await sock
+        .sendMessage(jid, { text: "⚠️ Tolong jangan pakai kata-kata kasar ya." })
+        .catch((err) => console.error(`Gagal kirim pemberitahuan kata terlarang ke ${jid}:`, err.message));
     }
     return; // stop di sini, jangan lanjut proses command/AI-chat dari pesan yang kena filter ini
   }

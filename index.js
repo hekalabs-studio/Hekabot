@@ -38,6 +38,15 @@ let consecutiveFailures = 0;
 
 async function startBot() {
   logSpecs(); // log spek device + mode performa (auto/low/high) yang kepilih
+
+  // Log konfirmasi config.js yang KEBACA SAAT INI (bukan versi lama yang mungkin masih
+  // "nyangkut" di proses lama yang belum di-restart). config.js cuma dibaca SEKALI pas bot
+  // start -- kalau kamu edit file config.js (misal nambah bannedWords) SETELAH bot udah
+  // jalan, perubahannya BARU kepakai kalau bot di-stop (Ctrl+C) terus dijalanin ulang.
+  // Kalau angka di bawah ini beda dari yang kamu kira, itu tandanya bot belum restart.
+  console.log(
+    `📋 Kata terlarang termuat: ${config.bannedWords?.length ?? 0} entri dari config.js`
+  );
   // @whiskeysockets/baileys sekarang pure ESM, jadi harus di-import secara dinamis
   // walaupun project ini CommonJS.
   const {

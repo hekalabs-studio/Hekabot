@@ -78,17 +78,26 @@ function totalFiturCount() {
 }
 
 module.exports = [
-  // bot - info singkat tentang bot
+  // bot - info singkat tentang bot + sistem yang dipakai server
   {
     name: "bot",
     run: async ({ reply }) => {
+      const cpus = os.cpus();
+      const totalMem = os.totalmem();
+      const freeMem = os.freemem();
+      const usedMemPercent = (((totalMem - freeMem) / totalMem) * 100).toFixed(1);
       reply(
         `🤖 *${config.botName}*\n\n` +
         `Kode Bot: ${config.botCode}\n` +
         `Owner: ${config.ownerName}\n` +
-        `Uptime: ${formatUptime(Date.now() - startTime)}\n` +
+        `Uptime: ${formatUptime(Date.now() - startTime)}\n\n` +
+        `*Sistem yang dipakai server*\n` +
+        `Platform: ${os.platform()} ${os.release()} (${os.arch()})\n` +
+        `CPU: ${cpus[0]?.model || "-"} (${cpus.length} core)\n` +
+        `RAM: ${formatBytes(totalMem)} (terpakai ${usedMemPercent}%)\n` +
         `Node.js: ${process.version}\n\n` +
-        `Ketik *menu* buat lihat semua fitur, atau *help* buat panduan pemakaian.`
+        `Ketik *menu* buat lihat semua fitur, atau *help* buat panduan pemakaian.\n` +
+        `(Mau spek server lebih detail lagi? Owner bisa pakai *.resource*)`
       );
     },
   },
