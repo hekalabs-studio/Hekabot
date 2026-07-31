@@ -124,13 +124,29 @@ async function handleMessage(sock, m) {
   // Perbaikannya cukup di SATU titik pusat ini: reply() sendiri yang nangkep errornya,
   // jadi promise yang dikembalikan ke pemanggil manapun (di-await atau tidak) tidak akan
   // pernah reject/unhandled lagi.
-  const reply = (content) =>
-    sock
-      .sendMessage(jid, typeof content === "string" ? { text: content } : content, { quoted: m })
-      .catch((err) => {
-        console.error(`Gagal kirim balasan ke ${jid}:`, err.message);
-        return null;
-      });
+  // reply() sekarang retry SATU KALI sebelum nyerah kalau pengiriman gagal (misal socket lagi
+  // timeout/error sesaat -- kayak kejadian "Timed Out"/"stream errored out" yang sering nongol
+  // pas koneksi WA lagi goyang). Kalau retry-nya juga gagal, baru dicatat sebagai gagal PERMANEN
+  // dengan detail lengkap (jid, command asal, cuplikan isi balasan) -- biar kalau ada laporan
+  // "kok gak dibales" lagi, tinggal grep "GAGAL KIRIM BALASAN" di file log/ dan langsung ketahuan
+  // pesan mana yang kena, bukan nebak-nebak dari screenshot lagi.
+  const reply = async (content, _isRetry = false) => {
+    const payload = typeof content === "string" ? { text: content } : content;
+    try {
+      return await sock.sendMessage(jid, payload, { quoted: m });
+    } catch (err) {
+      if (!_isRetry) {
+        console.warn(`[reply] Percobaan pertama gagal kirim ke ${jid} (id pesan asal=${m.key?.id}), retry sekali:`, err.message);
+        await new Promise((r) => setTimeout(r, 1500));
+        return reply(content, true);
+      }
+      const preview = typeof content === "string" ? content.slice(0, 120) : "(pesan non-teks/media)";
+      console.error(
+        `[reply] GAGAL KIRIM BALASAN (setelah retry) ke ${jid} untuk pesan asal id=${m.key?.id} teks-asal="${text.slice(0, 60)}": ${err.message} | draft balasan="${preview}"`
+      );
+      return null;
+    }
+  };
 
   const lower = text.toLowerCase();
 
@@ -274,7 +290,7 @@ async function handleMessage(sock, m) {
   const runCommand = async () => {
     const react = (emoji) =>
       sock.sendMessage(jid, { react: { text: emoji, key: m.key } }).catch((err) => {
-        console.error("Gagal kirim react:", err.message);
+        console.error(`[react] Gagal kirim react "${emoji}" ke ${jid} untuk pesan id=${m.key?.id}:`, err.message);
       });
     try {
       // PENTING: presence update ("mengetik...") sama react ⏳ ini cuma kosmetik, BUKAN

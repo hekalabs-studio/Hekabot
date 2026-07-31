@@ -11,6 +11,7 @@ const { resolveMedia } = require("../lib/media");
 const { uploadToCatbox } = require("../lib/transfer");
 const { cutAudio } = require("../lib/ffmpeg");
 const { searchKodepos, formatKodeposResults } = require("../lib/kodepos");
+const { searchDeviceSpecs, formatDeviceSpecs } = require("../lib/deviceSpecs");
 
 /** Ambil gambar (langsung/reply) -> upload sementara -> proses via API -> kirim balik */
 function imageApiCommand(name, endpointKey, { resultType = "image" } = {}) {
@@ -64,6 +65,17 @@ module.exports = [
     },
   },
 
+  // 1b. cekdevice - masih via scraping (belum ada dataset lokal spesifikasi ribuan HP semua merk)
+  {
+    name: "cekdevice",
+    aliases: ["cekhp", "spekhp", "specdevice"],
+    run: async ({ text, reply }) => {
+      if (!text) return reply("Tulis nama HP yang mau dicari.\nContoh: *cekdevice Poco X6 Pro* atau *cekdevice iPhone 15*");
+      const device = await searchDeviceSpecs(text);
+      reply(formatDeviceSpecs(device, text));
+    },
+  },
+
   // 2. cutmp3 - reply audio, teks: "start,durasi" detik. Contoh: cutmp3 10,15
   {
     name: "cutmp3",
@@ -103,7 +115,6 @@ module.exports = [
   // pakai getDevice() dari Baileys.
   {
     name: "infodevice",
-    aliases: ["cekdevice", "cekhp"],
     run: async ({ m, reply }) => {
       const { getDevice } = await import("@whiskeysockets/baileys");
       let platform = "unknown";

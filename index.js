@@ -1,6 +1,7 @@
 const { Boom } = require("@hapi/boom");
 const pino = require("pino");
 const path = require("path");
+const fs = require("fs");
 const qrcode = require("qrcode-terminal");
 const NodeCache = require("node-cache");
 const config = require("./config");
@@ -9,7 +10,41 @@ const { getText } = require("./lib/media");
 const { handleGroupUpdate } = require("./lib/groupEvents");
 const { logSpecs } = require("./lib/systemSpecs");
 
-const logger = pino({ level: "warn" }); // "silent" nyembunyiin SEMUA log baileys termasuk error penting
+// ==== LOG PERSISTEN KE FILE ====
+// SEBELUMNYA: semua log (console.log biasa DAN log Baileys/pino) cuma tampil di layar
+// terminal, gak pernah ditulis ke disk. Begitu terminal di-scroll/ke-clear/ditutup,
+// log-nya HILANG PERMANEN -- jadi kalau ada laporan "pesan X gak diproses" beberapa jam
+// setelahnya, gak ada cara verifikasi penyebabnya (pesan gak pernah nyampe ke bot, atau
+// nyampe tapi gagal dibales) karena bukti log-nya udah kebuang.
+// Fix: tulis SEMUA log (baileys + console.log/error/warn) ke file di folder logs/,
+// satu file per kali bot di-start (nama file pakai timestamp startup), SELAIN tetap
+// tampil di terminal seperti biasa. File lama gak ketimpa/kehapus otomatis --
+// hapus manual sendiri kalau folder logs/ udah kebesaran.
+const logsDir = path.join(__dirname, "logs");
+if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+const logFileName = `bot-${new Date().toISOString().replace(/[:.]/g, "-")}.log`;
+const logFilePath = path.join(logsDir, logFileName);
+const logFileStream = fs.createWriteStream(logFilePath, { flags: "a" });
+console.log(`📝 Log sesi ini juga disimpen ke: ${logFilePath}`);
+
+// Tee console.log/warn/error: tetap tampil di terminal SEPERTI BIASA, tapi sekarang juga
+// ditulis ke file di atas dengan timestamp. Gak perlu ubah satupun console.log/error yang
+// udah ada di file lain (handler.js, dll) -- ini nge-patch sekali di titik pusat.
+for (const level of ["log", "warn", "error"]) {
+  const original = console[level].bind(console);
+  console[level] = (...args) => {
+    original(...args);
+    const line = args
+      .map((a) => (typeof a === "string" ? a : (() => { try { return JSON.stringify(a); } catch { return String(a); } })()))
+      .join(" ");
+    logFileStream.write(`[${new Date().toISOString()}] [${level}] ${line}\n`);
+  };
+}
+
+const logger = pino({ level: "warn" }, pino.multistream([
+  { stream: process.stdout }, // tetap tampil di terminal seperti biasa
+  { stream: logFileStream },  // DAN ditulis ke file persisten yang sama kayak console.* di atas
+])); // "silent" nyembunyiin SEMUA log baileys termasuk error penting
 // (misal gagal dekripsi pesan dari sender tertentu, sesi putus, dll) -- "warn" nampilin
 // yang penting-penting aja (warning + error) tanpa berisik kayak "info"/"debug".
 
@@ -173,7 +208,16 @@ async function startBot() {
   });
 
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
-    if (type !== "notify") return;
+    // LOG DULU sebelum difilter apa pun -- biar kalau ada batch yang "hilang" tanpa jejak,
+    // ketahuan jelas dari sini apakah penyebabnya type-nya bukan "notify" (misal history sync
+    // pas bot reconnect -- Baileys suka ngirim ulang pesan lama dengan type "append"/"replace",
+    // BUKAN pesan baru beneran, jadi memang sengaja gak diproses/dibales) atau sebab lain.
+    if (type !== "notify") {
+      console.log(
+        `[upsert] batch DILEWATIN karena type="${type}" (bukan "notify", biasanya history sync pas reconnect) -- berisi ${messages.length} pesan, id=[${messages.map((m) => m?.key?.id).join(", ")}]`
+      );
+      return;
+    }
 
     // PENTING: Baileys kadang ngirim LEBIH DARI SATU pesan sekaligus dalam satu event ini
     // (misal kirim beberapa command cepat berturut-turut/bersamaan). Sebelumnya di sini cuma
