@@ -205,10 +205,19 @@ Ini **cuma aktif di chat pribadi** (japri), bukan di grup — biar bot gak spam 
 | `cuaca` | Open-Meteo (gratis, tanpa key) | ✅ Solid, gak akan bermasalah |
 | `ai` / `resetai` | Gemini API kamu | ✅ Solid (asal API key diisi, lihat bagian 10) |
 | `solve` | Gemini API kamu (vision) | ✅ Solid (asal API key diisi, lihat bagian 10) |
-| `alkitab` | SABDA (alkitab.sabda.org) | ⚠️ Bukan API resmi/JSON, hasil di-parse dari HTML — bisa berubah sewaktu-waktu |
+| `alkitab` | SABDA (alkitab.sabda.org, endpoint `passage.php?mode=text`) | ⚠️ Bukan API resmi/JSON, hasil di-parse dari HTML — bisa berubah sewaktu-waktu. *(Diperbaiki Agustus 2026: endpoint lama `api/passage/` sudah mati, sekarang pakai `passage.php?mode=text`.)* |
+| `alquran` / `quran` | API resmi equran.id (`equran.id/api/v2`) | ✅ JSON resmi, gratis, tanpa API key — lebih stabil dari `alkitab` |
 | `kbbi` | Scraping typoonline.com | ⚠️ Paling rawan putus, bergantung struktur halaman pihak ketiga |
 | `lirik` | lyrics.ovh | ⚠️ Wajib format *Artis - Judul*; hasil DIBATASI cuma cuplikan (bukan lirik lengkap, demi hak cipta) |
 | `pinterest` | Scraping pinterest.com | ⚠️ Pinterest cukup agresif soal anti-bot, paling mungkin diblokir sewaktu-waktu |
+
+Cara pakai `alquran`:
+```
+.alquran Al-Fatihah        ← info surat (arti, tempat turun, jumlah ayat)
+.alquran Al-Baqarah 255    ← baca 1 ayat (Arab + latin + terjemahan)
+.alquran Yasin 1-5         ← baca range ayat (maks 20 ayat sekali baca)
+.alquran 2 255              ← nomor surat langsung juga bisa
+```
 
 Kalau `alkitab`/`kbbi`/`pinterest` mulai error, kirim pesan errornya ke saya (Claude), nanti dicek lagi sumbernya.
 

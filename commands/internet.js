@@ -2,6 +2,7 @@ const { searchWikipedia } = require("../lib/wikipedia");
 const { getWeather } = require("../lib/weather");
 const { getPrayerTimes } = require("../lib/prayerTimes");
 const { getVerse } = require("../lib/alkitab");
+const { findSurah, getSurahDetail, getTafsir } = require("../lib/quran");
 const { getDefinition } = require("../lib/kbbi");
 const { searchLyrics } = require("../lib/lyrics");
 const { searchOpenverse, getImageBuffer } = require("../lib/openverseSearch");
@@ -83,9 +84,106 @@ module.exports = [
     run: async ({ text, reply }) => {
       if (!text) return reply("Tulis referensi ayatnya.\nContoh: *alkitab Yohanes 3:16*");
       try {
-        const verse = await getVerse(text);
-        if (!verse) return reply("Ayat gak ketemu, coba format 'Kitab Pasal:Ayat' (contoh: Yohanes 3:16).");
-        reply(`📖 *${text}*\n\n${verse}`);
+        const verses = await getVerse(text);
+        if (!verses) return reply("Ayat gak ketemu, coba format 'Kitab Pasal:Ayat' (contoh: Yohanes 3:16).");
+
+        // Kalau cuma 1 ayat, nomor ayatnya udah kepampang jelas di header -- gak perlu diulang
+        // lagi di body (itu yang bikin sebelumnya kelihatan dobel, mis. "3:16 3:16 ...").
+        // Kalau lebih dari 1 ayat (range/pasal penuh), tiap ayat dikasih nomor sendiri biar jelas batasnya.
+        const body =
+          verses.length === 1
+            ? verses[0].text
+            : verses.map((v) => `*${v.ref}* ${v.text}`).join("\n\n");
+
+        reply(`📖 *${text}*\n━━━━━━━━━━━━━━\n\n${body}`.slice(0, 4000));
+      } catch {
+        reply("Sumber ayat lagi gak bisa diakses. Coba lagi beberapa saat lagi.");
+      }
+    },
+  },
+
+  // alquran [Text] -- pasangan .alkitab, biar yang beda agama juga bisa pakai command serupa.
+  // Format: "<nama surat> <nomor ayat>" atau "<nama surat> <ayat awal>-<ayat akhir>".
+  // Nomor surat juga bisa dipakai langsung (mis. "2 255" = Al-Baqarah ayat 255 = Ayat Kursi).
+  // Kalau cuma nama surat tanpa nomor ayat, dibalikin info suratnya aja (biar gak ngirim
+  // ratusan ayat sekaligus ke chat -- Al-Baqarah aja isinya 286 ayat).
+  {
+    name: "alquran",
+    aliases: ["quran"],
+    run: async ({ text, reply }) => {
+      if (!text) return reply("Tulis nama surat dan nomor ayatnya.\nContoh: *alquran Al-Baqarah 255*\nAtau range: *alquran Yasin 1-5*");
+
+      const parts = text.trim().split(/\s+/);
+      const last = parts[parts.length - 1];
+      const rangeMatch = last.match(/^(\d+)(?:-(\d+))?$/);
+      const surahQuery = rangeMatch ? parts.slice(0, -1).join(" ") : text;
+
+      if (!surahQuery) return reply("Tulis nama suratnya juga ya.\nContoh: *alquran Al-Baqarah 255*");
+
+      try {
+        const surah = await findSurah(surahQuery);
+        if (!surah) return reply(`Surat "${surahQuery}" gak ketemu. Cek lagi penulisan namanya, mis. *Al-Fatihah*, *Al-Baqarah*, *Yasin*.`);
+
+        if (!rangeMatch) {
+          return reply(
+            `📖 *${surah.namaLatin}* (${surah.arti})\n` +
+              `Turun di: ${surah.tempatTurun} | Jumlah ayat: ${surah.jumlahAyat}\n\n` +
+              `Tulis nomor ayatnya buat baca isinya.\nContoh: *alquran ${surah.namaLatin} 1*`
+          );
+        }
+
+        const from = parseInt(rangeMatch[1], 10);
+        const to = rangeMatch[2] ? parseInt(rangeMatch[2], 10) : from;
+        if (from < 1 || to < from || to - from > 20) {
+          return reply("Rentang ayatnya gak valid, atau kebanyakan (maks 20 ayat sekali baca).");
+        }
+
+        const detail = await getSurahDetail(surah.nomor);
+        if (!detail?.ayat?.length) return reply("Sumber ayat lagi gak bisa diakses. Coba lagi beberapa saat lagi.");
+
+        const ayatList = detail.ayat.filter((a) => a.nomorAyat >= from && a.nomorAyat <= to);
+        if (ayatList.length === 0) {
+          return reply(`Surat *${surah.namaLatin}* cuma sampai ayat ${surah.jumlahAyat}.`);
+        }
+
+        // Tafsir itu pelengkap (bukan yang utama) -- kalau gagal diambil, jangan sampe bikin
+        // seluruh command gagal. Cukup bagian "Kesimpulan"-nya aja yang di-skip.
+        let tafsirByAyat = {};
+        try {
+          const tafsirList = await getTafsir(surah.nomor);
+          if (Array.isArray(tafsirList)) {
+            for (const t of tafsirList) tafsirByAyat[t.ayat] = t.teks;
+          }
+        } catch {
+          // diamkan -- kesimpulan cuma gak dimunculin, ayat/arti/latinnya tetap jalan normal
+        }
+
+        // Tiap ayat dikasih blok jelas: Arab -> latin -> arti -> kesimpulan, dipisah label +
+        // baris kosong, biar 4 jenis teks (yang panjang-panjang dan gaya tulisan beda) gak
+        // nempel jadi satu gumpalan. Antar-ayat (kalau range) dikasih garis pemisah biar gak ketuker.
+        //
+        // PENTING soal _latin_: WhatsApp cuma nge-render jadi miring kalau underscore-nya
+        // NEMPEL LANGSUNG ke teksnya, gak boleh ada spasi di antaranya (mis. "_teks _" GAK akan
+        // miring). teksLatin dari API kadang kebawa spasi nyangkut di ujung -- makanya di-trim()
+        // dulu sebelum dibungkus underscore.
+        const body = ayatList
+          .map((a) => {
+            const latin = String(a.teksLatin || "").trim();
+            const kesimpulan = tafsirByAyat[a.nomorAyat];
+            let block =
+              `*${surah.namaLatin} : ${a.nomorAyat}*\n\n` +
+              `${a.teksArab}\n\n` +
+              `_${latin}_\n\n` +
+              `Artinya:\n${a.teksIndonesia}`;
+            if (kesimpulan) {
+              const ringkas = kesimpulan.length > 500 ? kesimpulan.slice(0, 500).trim() + "..." : kesimpulan;
+              block += `\n\nKesimpulan:\n${ringkas}`;
+            }
+            return block;
+          })
+          .join("\n\n━━━━━━━━━━━━━━\n\n");
+
+        reply(`📖 ${body}`.slice(0, 4000));
       } catch {
         reply("Sumber ayat lagi gak bisa diakses. Coba lagi beberapa saat lagi.");
       }
