@@ -1,3 +1,6 @@
+const config = require("../config");
+const p = config.prefix;
+
 /** Cari target user dari: reply pesan orangnya / mention (@tag) / nomor yang diketik manual */
 function resolveTargetJid(m, text) {
   const quotedParticipant = m.message?.extendedTextMessage?.contextInfo?.participant;
@@ -20,7 +23,7 @@ module.exports = [
     groupAdminOnly: true,
     run: async ({ jid, sock, m, text, reply }) => {
       const target = resolveTargetJid(m, text);
-      if (!target) return reply("Reply pesan orangnya, mention (@tag), atau tulis nomornya.\nContoh: *kick 628xxxxxxxxxx*");
+      if (!target) return reply(`Reply pesan orangnya, mention (@tag), atau tulis nomornya.\nContoh: *${p}kick 628xxxxxxxxxx*`);
       try {
         await sock.groupParticipantsUpdate(jid, [target], "remove");
         await reply({ text: `✅ Berhasil keluarkan @${target.split("@")[0]} dari grup.`, mentions: [target] });
@@ -36,7 +39,7 @@ module.exports = [
     groupAdminOnly: true,
     run: async ({ jid, sock, m, text, reply }) => {
       const target = resolveTargetJid(m, text);
-      if (!target) return reply("Reply pesan orangnya, mention (@tag), atau tulis nomornya.\nContoh: *promote 628xxxxxxxxxx*");
+      if (!target) return reply(`Reply pesan orangnya, mention (@tag), atau tulis nomornya.\nContoh: *${p}promote 628xxxxxxxxxx*`);
       try {
         await sock.groupParticipantsUpdate(jid, [target], "promote");
         await reply({ text: `✅ @${target.split("@")[0]} sekarang jadi admin.`, mentions: [target] });
@@ -52,7 +55,7 @@ module.exports = [
     groupAdminOnly: true,
     run: async ({ jid, sock, m, text, reply }) => {
       const target = resolveTargetJid(m, text);
-      if (!target) return reply("Reply pesan orangnya, mention (@tag), atau tulis nomornya.\nContoh: *demote 628xxxxxxxxxx*");
+      if (!target) return reply(`Reply pesan orangnya, mention (@tag), atau tulis nomornya.\nContoh: *${p}demote 628xxxxxxxxxx*`);
       try {
         await sock.groupParticipantsUpdate(jid, [target], "demote");
         await reply({ text: `✅ @${target.split("@")[0]} udah bukan admin lagi.`, mentions: [target] });
@@ -113,7 +116,7 @@ module.exports = [
     name: "hidetag",
     groupAdminOnly: true,
     run: async ({ jid, sock, text, reply }) => {
-      if (!text) return reply("Tulis pesannya.\nContoh: *hidetag Woi pada kumpul!*");
+      if (!text) return reply(`Tulis pesannya.\nContoh: *${p}hidetag Woi pada kumpul!*`);
       try {
         const meta = await sock.groupMetadata(jid);
         const mentions = meta.participants.map((p) => p.id);

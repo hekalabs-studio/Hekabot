@@ -6,6 +6,8 @@ const { findSurah, getSurahDetail, getTafsir } = require("../lib/quran");
 const { getDefinition } = require("../lib/kbbi");
 const { searchLyrics } = require("../lib/lyrics");
 const { searchOpenverse, getImageBuffer } = require("../lib/openverseSearch");
+const config = require("../config");
+const p = config.prefix;
 
 module.exports = [
   // wikipedia [Text]
@@ -13,7 +15,7 @@ module.exports = [
     name: "wikipedia",
     aliases: ["wiki"],
     run: async ({ text, reply }) => {
-      if (!text) return reply("Tulis yang mau dicari.\nContoh: *wikipedia Soekarno*");
+      if (!text) return reply(`Tulis yang mau dicari.\nContoh: *${p}wikipedia Soekarno*`);
       const result = await searchWikipedia(text);
       if (!result) return reply("Gak ketemu artikel yang cocok di Wikipedia.");
       reply(`📖 *${result.title}*\n\n${result.extract}\n\n${result.url}`);
@@ -24,7 +26,7 @@ module.exports = [
   {
     name: "cuaca",
     run: async ({ text, reply }) => {
-      if (!text) return reply("Tulis nama kotanya.\nContoh: *cuaca Klakah*");
+      if (!text) return reply(`Tulis nama kotanya.\nContoh: *${p}cuaca Klakah*`);
       const weather = await getWeather(text);
       if (!weather) return reply("Kota gak ketemu, coba nama lain (misal tanpa embel-embel 'Kabupaten/Kota').");
 
@@ -55,7 +57,7 @@ module.exports = [
     name: "jadwalsalat",
     aliases: ["jadwalsholat", "jadwalshalat", "sholat", "sholatjadwal"],
     run: async ({ text, reply }) => {
-      if (!text) return reply("Tulis nama kotanya.\nContoh: *jadwalsalat Klakah*");
+      if (!text) return reply(`Tulis nama kotanya.\nContoh: *${p}jadwalsalat Klakah*`);
       const jadwal = await getPrayerTimes(text);
       if (!jadwal) return reply("Kota gak ketemu, coba nama lain (misal tanpa embel-embel 'Kabupaten/Kota').");
 
@@ -82,7 +84,7 @@ module.exports = [
   {
     name: "alkitab",
     run: async ({ text, reply }) => {
-      if (!text) return reply("Tulis referensi ayatnya.\nContoh: *alkitab Yohanes 3:16*");
+      if (!text) return reply(`Tulis referensi ayatnya.\nContoh: *${p}alkitab Yohanes 3:16*`);
       try {
         const verses = await getVerse(text);
         if (!verses) return reply("Ayat gak ketemu, coba format 'Kitab Pasal:Ayat' (contoh: Yohanes 3:16).");
@@ -111,14 +113,14 @@ module.exports = [
     name: "alquran",
     aliases: ["quran"],
     run: async ({ text, reply }) => {
-      if (!text) return reply("Tulis nama surat dan nomor ayatnya.\nContoh: *alquran Al-Baqarah 255*\nAtau range: *alquran Yasin 1-5*");
+      if (!text) return reply(`Tulis nama surat dan nomor ayatnya.\nContoh: *${p}alquran Al-Baqarah 255*\nAtau range: *${p}alquran Yasin 1-5*`);
 
       const parts = text.trim().split(/\s+/);
       const last = parts[parts.length - 1];
       const rangeMatch = last.match(/^(\d+)(?:-(\d+))?$/);
       const surahQuery = rangeMatch ? parts.slice(0, -1).join(" ") : text;
 
-      if (!surahQuery) return reply("Tulis nama suratnya juga ya.\nContoh: *alquran Al-Baqarah 255*");
+      if (!surahQuery) return reply(`Tulis nama suratnya juga ya.\nContoh: *${p}alquran Al-Baqarah 255*`);
 
       try {
         const surah = await findSurah(surahQuery);
@@ -128,7 +130,7 @@ module.exports = [
           return reply(
             `📖 *${surah.namaLatin}* (${surah.arti})\n` +
               `Turun di: ${surah.tempatTurun} | Jumlah ayat: ${surah.jumlahAyat}\n\n` +
-              `Tulis nomor ayatnya buat baca isinya.\nContoh: *alquran ${surah.namaLatin} 1*`
+              `Tulis nomor ayatnya buat baca isinya.\nContoh: *${p}alquran ${surah.namaLatin} 1*`
           );
         }
 
@@ -194,7 +196,7 @@ module.exports = [
   {
     name: "kbbi",
     run: async ({ text, reply }) => {
-      if (!text) return reply("Tulis kata yang mau dicari artinya.\nContoh: *kbbi santuy*");
+      if (!text) return reply(`Tulis kata yang mau dicari artinya.\nContoh: *${p}kbbi santuy*`);
       try {
         const def = await getDefinition(text);
         if (!def) return reply(`Kata "${text}" gak ketemu di KBBI.`);
@@ -210,7 +212,7 @@ module.exports = [
     name: "lirik",
     run: async ({ text, reply }) => {
       if (!text || !text.includes("-")) {
-        return reply("Format: *lirik Artis - Judul Lagu*\nContoh: *lirik Tulus - Hati-Hati di Jalan*");
+        return reply(`Format: *${p}lirik Artis - Judul Lagu*\nContoh: *${p}lirik Tulus - Hati-Hati di Jalan*`);
       }
       const [artist, ...titleParts] = text.split("-");
       const title = titleParts.join("-").trim();
@@ -232,7 +234,7 @@ module.exports = [
     name: "openverse",
     aliases: ["image", "gambar"],
     run: async ({ text, reply }) => {
-      if (!text) return reply("Tulis kata kuncinya.\nContoh: *openverse cat*");
+      if (!text) return reply(`Tulis kata kuncinya.\nContoh: *${p}openverse cat*`);
 
       try {
         const urls = await searchOpenverse(text);

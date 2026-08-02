@@ -1,6 +1,8 @@
 const { apiGet } = require("../lib/api");
 const { findUrls, findText } = require("../lib/extract");
 const ytdlp = require("../lib/ytdlp");
+const config = require("../config");
+const p = config.prefix;
 
 function getLink(args, text) {
   const found = (args[0] || "").match(/^https?:\/\/\S+$/i);
@@ -30,9 +32,14 @@ function ytdlpVideoCommand(name, aliases = []) {
   return {
     name,
     aliases,
+    // Download video via proses eksternal (yt-dlp) lalu buffer SELURUH filenya ke RAM
+    // (lihat lib/ytdlp.js) -- bisa berat kalau videonya panjang/resolusi tinggi. Ditandai
+    // heavy biar kena antrean+limit MAX_HEAVY_PENDING per pengirim & cek RAM di handler.js,
+    // gak bisa displant/spam bebas kayak command ringan.
+    heavy: true,
     run: async ({ jid, sock, args, text, reply }) => {
       const link = getLink(args, text);
-      if (!link) return reply(`Kirim link-nya juga ya.\nContoh: *${name} https://...*`);
+      if (!link) return reply(`Kirim link-nya juga ya.\nContoh: *${p}${name} https://...*`);
       const { buffer, title } = await ytdlp.downloadVideo(link);
       await reply({ video: buffer, caption: title });
     },
@@ -44,9 +51,10 @@ function ytdlpAudioCommand(name, aliases = []) {
   return {
     name,
     aliases,
+    heavy: true, // sama kayak ytdlpVideoCommand -- proses eksternal + buffer file penuh ke RAM
     run: async ({ jid, sock, args, text, reply }) => {
       const link = getLink(args, text);
-      if (!link) return reply(`Kirim link-nya juga ya.\nContoh: *${name} https://...*`);
+      if (!link) return reply(`Kirim link-nya juga ya.\nContoh: *${p}${name} https://...*`);
       const { buffer, title } = await ytdlp.downloadAudio(link);
       await reply({ audio: buffer, mimetype: "audio/mpeg", fileName: `${title}.mp3` });
     },
@@ -61,9 +69,12 @@ function ytdlpImagesCommand(name, aliases = []) {
   return {
     name,
     aliases,
+    // Bisa download banyak file gambar sekaligus (carousel/slideshow) + kirim satu-satu --
+    // ditandai heavy juga biar konsisten gak bisa displant bareng command yt-dlp lain.
+    heavy: true,
     run: async ({ jid, sock, args, text, reply }) => {
       const link = getLink(args, text);
-      if (!link) return reply(`Kirim link-nya juga ya.\nContoh: *${name} https://...*`);
+      if (!link) return reply(`Kirim link-nya juga ya.\nContoh: *${p}${name} https://...*`);
       const { buffers, title } = await ytdlp.downloadImages(link);
       for (let i = 0; i < buffers.length; i++) {
         await reply({ image: buffers[i], caption: i === 0 ? title : undefined });
@@ -83,7 +94,7 @@ function videoCommand(name, endpointKey, aliases = []) {
     aliases,
     run: async ({ jid, sock, args, text, reply }) => {
       const link = getLink(args, text);
-      if (!link) return reply(`Kirim link-nya juga ya.\nContoh: *${name} https://...*`);
+      if (!link) return reply(`Kirim link-nya juga ya.\nContoh: *${p}${name} https://...*`);
       const res = await apiGet(endpointKey, { url: link }, { requireUrl: true });
       const urls = findUrls(res);
       if (!urls.length) return reply(noUrlFoundMessage(name, res));
@@ -99,7 +110,7 @@ function imageCommand(name, endpointKey, aliases = []) {
     aliases,
     run: async ({ jid, sock, args, text, reply }) => {
       const link = getLink(args, text);
-      if (!link) return reply(`Kirim link-nya juga ya.\nContoh: *${name} https://...*`);
+      if (!link) return reply(`Kirim link-nya juga ya.\nContoh: *${p}${name} https://...*`);
       const res = await apiGet(endpointKey, { url: link }, { requireUrl: true });
       const urls = findUrls(res).slice(0, 10);
       if (!urls.length) return reply(noUrlFoundMessage(name, res));
@@ -115,8 +126,9 @@ function imageCommand(name, endpointKey, aliases = []) {
 function playCommand(name) {
   return {
     name,
+    heavy: true, // download audio via yt-dlp -- sama beratnya kayak ytdlpAudioCommand
     run: async ({ jid, sock, text, reply }) => {
-      if (!text) return reply(`Ketik judul lagu/videonya (atau link YouTube).\nContoh: *${name} Tulus - Hati-hati di Jalan*`);
+      if (!text) return reply(`Ketik judul lagu/videonya (atau link YouTube).\nContoh: *${p}${name} Tulus - Hati-hati di Jalan*`);
       const { buffer, title } = await ytdlp.downloadAudio(text);
       await reply({ audio: buffer, mimetype: "audio/mpeg", fileName: `${title}.mp3` });
     },
@@ -126,9 +138,10 @@ function playCommand(name) {
 function ytmp3Command() {
   return {
     name: "ytmp3",
+    heavy: true,
     run: async ({ jid, sock, args, text, reply }) => {
       const link = getLink(args, text);
-      if (!link) return reply("Kirim link YouTube-nya juga ya.\nContoh: *ytmp3 https://youtu.be/...*");
+      if (!link) return reply(`Kirim link YouTube-nya juga ya.\nContoh: *${p}ytmp3 https://youtu.be/...*`);
       const { buffer, title } = await ytdlp.downloadAudio(link);
       await reply({ audio: buffer, mimetype: "audio/mpeg", fileName: `${title}.mp3` });
     },
@@ -138,9 +151,10 @@ function ytmp3Command() {
 function ytmp4Command() {
   return {
     name: "ytmp4",
+    heavy: true,
     run: async ({ jid, sock, args, text, reply }) => {
       const link = getLink(args, text);
-      if (!link) return reply("Kirim link YouTube-nya juga ya.\nContoh: *ytmp4 https://youtu.be/...*");
+      if (!link) return reply(`Kirim link YouTube-nya juga ya.\nContoh: *${p}ytmp4 https://youtu.be/...*`);
       const { buffer, title } = await ytdlp.downloadVideo(link);
       await reply({ video: buffer, caption: title });
     },
@@ -157,7 +171,7 @@ module.exports = [
   ytdlpAudioCommand("ttmp3"),
   ytdlpVideoCommand("ttmp4"),
   ytdlpImagesCommand("ttslide", ["tiktokslide"]), // slideshow/photo-mode TikTok (foto, bukan video)
-  ytdlpVideoCommand("twitter", ["xdl"]),
+  ytdlpVideoCommand("xdl", ["twitter", "x"]),
   playCommand("play"),
   ytmp3Command(),
   ytmp4Command(),

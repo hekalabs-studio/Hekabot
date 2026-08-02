@@ -1,6 +1,8 @@
 const sharp = require("sharp");
 const { PDFDocument } = require("pdf-lib");
 const { resolveMedia } = require("../lib/media");
+const config = require("../config");
+const p = config.prefix;
 const { uploadToCatbox, downloadBuffer } = require("../lib/transfer");
 const { toMp3, toVoiceNote, toGif, stickerToMp4 } = require("../lib/ffmpeg");
 const { convertWithLibreOffice } = require("../lib/libreoffice");
@@ -44,7 +46,7 @@ module.exports = [
     name: "compresspdf",
     run: async ({ sock, m, reply }) => {
       const media = await resolveMedia(sock, m);
-      if (!media || media.type !== "document") return reply("Reply file PDF dengan caption *compresspdf*.");
+      if (!media || media.type !== "document") return reply(`Reply file PDF dengan caption *${p}compresspdf*.`);
       const pdfDoc = await PDFDocument.load(media.buffer, { ignoreEncryption: true });
       const bytes = await pdfDoc.save({ useObjectStreams: true });
       const before = (media.buffer.length / 1024).toFixed(0);
@@ -64,10 +66,10 @@ module.exports = [
     run: async ({ sock, m, text, reply }) => {
       const media = await resolveMedia(sock, m);
       if (!media || media.type !== "document") {
-        return reply("Reply file PDF pertama, dengan caption *mergepdf [link PDF kedua]*.\nContoh: *mergepdf https://files.catbox.moe/xxxxx.pdf*");
+        return reply(`Reply file PDF pertama, dengan caption *${p}mergepdf [link PDF kedua]*.\nContoh: *${p}mergepdf https://files.catbox.moe/xxxxx.pdf*`);
       }
       const link = (text || "").match(/https?:\/\/\S+/i)?.[0];
-      if (!link) return reply("Sertakan link PDF kedua di teksnya.\nTips: upload PDF kedua pakai *tourl* dulu buat dapetin link-nya.");
+      if (!link) return reply(`Sertakan link PDF kedua di teksnya.\nTips: upload PDF kedua pakai *${p}tourl* dulu buat dapetin link-nya.`);
 
       const secondBuffer = await downloadBuffer(link);
       const pdfA = await PDFDocument.load(media.buffer, { ignoreEncryption: true });
@@ -87,9 +89,9 @@ module.exports = [
     name: "splitpdf",
     run: async ({ sock, m, text, reply }) => {
       const media = await resolveMedia(sock, m);
-      if (!media || media.type !== "document") return reply("Reply file PDF dengan caption *splitpdf halaman-awal-akhir*.\nContoh: *splitpdf 1-3*");
+      if (!media || media.type !== "document") return reply(`Reply file PDF dengan caption *${p}splitpdf halaman-awal-akhir*.\nContoh: *${p}splitpdf 1-3*`);
       const match = (text || "").match(/(\d+)\s*-\s*(\d+)/);
-      if (!match) return reply("Format halaman salah. Contoh: *splitpdf 1-3* (ambil halaman 1 sampai 3)");
+      if (!match) return reply(`Format halaman salah. Contoh: *${p}splitpdf 1-3* (ambil halaman 1 sampai 3)`);
 
       const start = parseInt(match[1], 10);
       const end = parseInt(match[2], 10);
@@ -123,7 +125,7 @@ module.exports = [
     run: async ({ sock, m, reply }) => {
       const media = await resolveMedia(sock, m);
       if (!media || (media.type !== "video" && media.type !== "sticker")) {
-        return reply("Reply video pendek atau stiker (yang bergerak) dengan caption *togif*.");
+        return reply(`Reply video pendek atau stiker (yang bergerak) dengan caption *${p}togif*.`);
       }
       try {
         const mp4 =
@@ -142,7 +144,7 @@ module.exports = [
     name: "toimg",
     run: async ({ sock, m, reply }) => {
       const media = await resolveMedia(sock, m);
-      if (!media || media.type !== "sticker") return reply("Reply stiker dengan caption *toimg*.");
+      if (!media || media.type !== "sticker") return reply(`Reply stiker dengan caption *${p}toimg*.`);
       const png = await sharp(media.buffer).png().toBuffer();
       await reply({ image: png });
     },
@@ -154,7 +156,7 @@ module.exports = [
     heavy: true, // sharp (ekstrak frame) + ffmpeg (rakit video), berat
     run: async ({ sock, m, reply }) => {
       const media = await resolveMedia(sock, m);
-      if (!media || media.type !== "sticker") return reply("Reply stiker (yang bergerak) dengan caption *tomp4*.");
+      if (!media || media.type !== "sticker") return reply(`Reply stiker (yang bergerak) dengan caption *${p}tomp4*.`);
       try {
         const mp4 = await stickerToMp4(media.buffer);
         await reply({ video: mp4, mimetype: "video/mp4" });
@@ -171,7 +173,7 @@ module.exports = [
     name: "tojpg",
     run: async ({ sock, m, reply }) => {
       const media = await resolveMedia(sock, m);
-      if (!media || media.type !== "image") return reply("Reply gambar dengan caption *tojpg*.");
+      if (!media || media.type !== "image") return reply(`Reply gambar dengan caption *${p}tojpg*.`);
       const jpg = await sharp(media.buffer).flatten({ background: "#fff" }).jpeg({ quality: 90 }).toBuffer();
       await reply({ document: jpg, mimetype: "image/jpeg", fileName: outputFileName(media, "jpg") });
     },
@@ -182,7 +184,7 @@ module.exports = [
     name: "tomp3",
     run: async ({ sock, m, reply }) => {
       const media = await resolveMedia(sock, m);
-      if (!media || media.type !== "video") return reply("Reply video dengan caption *tomp3*.");
+      if (!media || media.type !== "video") return reply(`Reply video dengan caption *${p}tomp3*.`);
       const mp3 = await toMp3(media.buffer, "mp4");
       await reply({ audio: mp3, mimetype: "audio/mpeg", fileName: outputFileName(media, "mp3", "audio") });
     },
@@ -193,7 +195,7 @@ module.exports = [
     name: "topdf",
     run: async ({ sock, m, reply }) => {
       const media = await resolveMedia(sock, m);
-      if (!media) return reply("Reply gambar atau dokumen dengan caption *topdf*.");
+      if (!media) return reply(`Reply gambar atau dokumen dengan caption *${p}topdf*.`);
 
       if (media.type === "image") {
         const pdfDoc = await PDFDocument.create();
@@ -222,7 +224,7 @@ module.exports = [
         }
       }
 
-      return reply("Reply gambar atau dokumen (docx/xlsx/pptx dll) dengan caption *topdf*.");
+      return reply(`Reply gambar atau dokumen (docx/xlsx/pptx dll) dengan caption *${p}topdf*.`);
     },
   },
 
@@ -231,7 +233,7 @@ module.exports = [
     name: "topng",
     run: async ({ sock, m, reply }) => {
       const media = await resolveMedia(sock, m);
-      if (!media || media.type !== "image") return reply("Reply gambar dengan caption *topng*.");
+      if (!media || media.type !== "image") return reply(`Reply gambar dengan caption *${p}topng*.`);
       const png = await sharp(media.buffer).png().toBuffer();
       await reply({ document: png, mimetype: "image/png", fileName: outputFileName(media, "png") });
     },
@@ -245,7 +247,7 @@ module.exports = [
     name: "tourl",
     run: async ({ sock, m, reply }) => {
       const media = await resolveMedia(sock, m);
-      if (!media) return reply("Reply media (gambar/video/audio/dokumen) dengan caption *tourl*.");
+      if (!media) return reply(`Reply media (gambar/video/audio/dokumen) dengan caption *${p}tourl*.`);
       const url = await uploadToCatbox(media.buffer, outputFileName(media, media.ext, "file"));
       reply(`Link kamu:\n${url}`);
     },
@@ -255,10 +257,10 @@ module.exports = [
   {
     name: "tovcf",
     run: async ({ text, reply }) => {
-      if (!text || !text.includes("|")) return reply("Format: *tovcf Nama|Nomor*\nContoh: *tovcf Budi Santoso|6281234567890*");
+      if (!text || !text.includes("|")) return reply(`Format: *${p}tovcf Nama|Nomor*\nContoh: *${p}tovcf Budi Santoso|6281234567890*`);
       const [name, numberRaw] = text.split("|").map((s) => s.trim());
       const number = numberRaw.replace(/[^\d+]/g, "");
-      if (!name || !number) return reply("Format: *tovcf Nama|Nomor*\nContoh: *tovcf Budi Santoso|6281234567890*");
+      if (!name || !number) return reply(`Format: *${p}tovcf Nama|Nomor*\nContoh: *${p}tovcf Budi Santoso|6281234567890*`);
 
       const vcf =
         `BEGIN:VCARD\nVERSION:3.0\nFN:${name}\nTEL;TYPE=CELL:${number}\nEND:VCARD`;
@@ -271,7 +273,7 @@ module.exports = [
     name: "tovn",
     run: async ({ sock, m, reply }) => {
       const media = await resolveMedia(sock, m);
-      if (!media || media.type !== "audio") return reply("Reply audio dengan caption *tovn*.");
+      if (!media || media.type !== "audio") return reply(`Reply audio dengan caption *${p}tovn*.`);
       const ogg = await toVoiceNote(media.buffer, "mp3");
       await reply({ audio: ogg, mimetype: "audio/ogg; codecs=opus", ptt: true });
     },
@@ -282,7 +284,7 @@ module.exports = [
     name: "towebp",
     run: async ({ sock, m, reply }) => {
       const media = await resolveMedia(sock, m);
-      if (!media || media.type !== "image") return reply("Reply gambar dengan caption *towebp*.");
+      if (!media || media.type !== "image") return reply(`Reply gambar dengan caption *${p}towebp*.`);
       const webp = await sharp(media.buffer).webp({ quality: 90 }).toBuffer();
       await reply({ document: webp, mimetype: "image/webp", fileName: outputFileName(media, "webp") });
     },

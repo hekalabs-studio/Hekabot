@@ -1,5 +1,7 @@
 const { isRegistered, getUser, registerUser, unregisterUser, deleteUserById } = require("../lib/userStore");
 const { isOwner } = require("../lib/owner");
+const config = require("../config");
+const p = config.prefix;
 
 function senderJidOf(m) {
   return m.key.participant || m.key.remoteJid;
@@ -13,11 +15,11 @@ module.exports = [
       const jid = senderJidOf(m);
       if (isRegistered(jid)) {
         const user = getUser(jid);
-        return reply(`Kamu udah terdaftar sebagai *${user.name}* (ID: ${user.id}).\nKetik *profile* buat lihat detail, atau *hapusakun* buat batal daftar.`);
+        return reply(`Kamu udah terdaftar sebagai *${user.name}* (ID: ${user.id}).\nKetik *${p}profile* buat lihat detail, atau *${p}hapusakun* buat batal daftar.`);
       }
-      if (!text) return reply("Daftar dulu ya sebelum bisa pakai bot ini.\nFormat: *daftar Nama Kamu*\nContoh: *daftar Budi Santoso*");
+      if (!text) return reply(`Daftar dulu ya sebelum bisa pakai bot ini.\nFormat: *${p}daftar Nama Kamu*\nContoh: *${p}daftar Budi Santoso*`);
       const user = registerUser(jid, { name: text.trim() });
-      reply(`✅ Pendaftaran berhasil! Selamat datang, *${text.trim()}* (ID: ${user.id}).\nSekarang kamu udah bisa pakai semua fitur bot. Ketik *menu* buat lihat daftar fiturnya.`);
+      reply(`✅ Pendaftaran berhasil! Selamat datang, *${text.trim()}* (ID: ${user.id}).\nSekarang kamu udah bisa pakai semua fitur bot. Ketik *${p}menu* buat lihat daftar fiturnya.`);
     },
   },
   {
@@ -26,7 +28,7 @@ module.exports = [
     run: async ({ m, reply }) => {
       const jid = senderJidOf(m);
       const user = getUser(jid);
-      if (!user) return reply("Kamu belum terdaftar. Ketik *daftar Nama Kamu* dulu.");
+      if (!user) return reply(`Kamu belum terdaftar. Ketik *${p}daftar Nama Kamu* dulu.`);
       const tgl = new Date(user.registeredAt).toLocaleString("id-ID");
       reply(
         `👤 *Profil Kamu*\nID: ${user.id}\nNama: ${user.name}\nNomor: ${user.number}\n` +
@@ -54,7 +56,7 @@ module.exports = [
       // Mode hapus akun sendiri -- bisa siapa aja
       if (!isRegistered(jid)) return reply("Kamu belum terdaftar, gak ada yang perlu dihapus.");
       unregisterUser(jid);
-      reply("Akun kamu berhasil dihapus. Daftar ulang kapan aja pakai *daftar Nama Kamu*.");
+      reply(`Akun kamu berhasil dihapus. Daftar ulang kapan aja pakai *${p}daftar Nama Kamu*.`);
     },
   },
   {
@@ -62,7 +64,7 @@ module.exports = [
     name: "deleteuser",
     ownerOnly: true,
     run: async ({ text, reply }) => {
-      if (!text) return reply("Tulis User ID yang mau dihapus.\nContoh: *deleteuser U001*");
+      if (!text) return reply(`Tulis User ID yang mau dihapus.\nContoh: *${p}deleteuser U001*`);
       const deleted = deleteUserById(text.trim());
       if (!deleted) return reply(`User dengan ID *${text.trim().toUpperCase()}* gak ketemu.`);
       reply(`✅ Akun *${deleted.name}* (${deleted.id}) berhasil dihapus.`);

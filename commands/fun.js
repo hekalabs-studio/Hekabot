@@ -12,6 +12,8 @@ const {
   DREAMWORLD_LINES,
   FUFUFAFA_RESPONSES,
 } = require("../lib/funData");
+const config = require("../config");
+const p = config.prefix;
 
 const QUOTES = [
   "Gak semua yang ditunggu harus terburu-buru, ada waktunya sendiri.",
@@ -41,7 +43,7 @@ module.exports = [
   {
     name: "cekjodoh",
     run: async ({ text, reply }) => {
-      if (!text) return reply("Tulis 2 nama.\nContoh: *cekjodoh Andi Sarah*");
+      if (!text) return reply(`Tulis 2 nama.\nContoh: *${p}cekjodoh Andi Sarah*`);
       const percent = seededPercent(text, 1, 100);
       reply(`💞 *Cek Jodoh*\n${text}\n\nHasil: *${percent}%*\n${commentFor(JODOH_COMMENTS, percent)}`);
     },
@@ -51,7 +53,7 @@ module.exports = [
   {
     name: "cekkodam",
     run: async ({ text, reply }) => {
-      if (!text) return reply("Tulis nama yang mau dicek.\nContoh: *cekkodam Budi*");
+      if (!text) return reply(`Tulis nama yang mau dicek.\nContoh: *${p}cekkodam Budi*`);
       const idx = seededPercent(text, 0, KODAM_LIST.length - 1);
       reply(`🔮 *Cek Kodam*\n${text}\n\nKodam pendamping: *${KODAM_LIST[idx]}*`);
     },
@@ -95,7 +97,7 @@ module.exports = [
   {
     name: "menfess",
     run: async ({ text, reply }) => {
-      if (!text) return reply("Tulis pesan menfess-nya.\nContoh: *menfess buat dia yang lagi baca ini...*");
+      if (!text) return reply(`Tulis pesan menfess-nya.\nContoh: *${p}menfess buat dia yang lagi baca ini...*`);
       reply(`📮 *MENFESS ANONIM*\n━━━━━━━━━━━━━━━\n${text}\n━━━━━━━━━━━━━━━\n_pesan ini dikirim secara anonim_`);
     },
   },
@@ -113,7 +115,7 @@ module.exports = [
   {
     name: "rate",
     run: async ({ text, reply }) => {
-      if (!text) return reply("Tulis yang mau di-rate.\nContoh: *rate skill masak aku*");
+      if (!text) return reply(`Tulis yang mau di-rate.\nContoh: *${p}rate skill masak aku*`);
       const percent = seededPercent(text + Date.now(), 0, 100); // beda tiap kali dipanggil
       reply(`📊 *Rate: ${text}*\n\nHasil: *${percent}/100*\n${commentFor(RATE_COMMENTS, percent)}`);
     },
@@ -123,7 +125,7 @@ module.exports = [
   {
     name: "soulmatch",
     run: async ({ text, m, reply }) => {
-      if (!text) return reply("Tulis nama yang mau dicek.\nContoh: *soulmatch Rara*");
+      if (!text) return reply(`Tulis nama yang mau dicek.\nContoh: *${p}soulmatch Rara*`);
       const sender = m.pushName || "kamu";
       const percent = seededPercent(sender + text, 1, 100);
       reply(`💫 *Soul Match*\n${sender} × ${text}\n\nKecocokan: *${percent}%*\n${commentFor(JODOH_COMMENTS, percent)}`);
@@ -142,7 +144,7 @@ module.exports = [
   {
     name: "top",
     run: async ({ text, reply }) => {
-      if (!text) return reply("Tulis nama yang mau dikasih gelar.\nContoh: *top Dimas*");
+      if (!text) return reply(`Tulis nama yang mau dikasih gelar.\nContoh: *${p}top Dimas*`);
       const idx = seededPercent(text, 0, TOP_TITLES.length - 1);
       reply(`🏆 *${text}* resmi dinobatkan sebagai...\n\n*${TOP_TITLES[idx]}*`);
     },

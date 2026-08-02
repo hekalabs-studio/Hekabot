@@ -312,6 +312,7 @@ Kalau file itu belum ada, bot otomatis skip bagian gambar dan langsung kirim men
 
 - Ini pakai WhatsApp Web multi-device (tidak resmi/unofficial). Gunakan nomor sekunder, jangan nomor utama, untuk menghindari risiko banned oleh WhatsApp.
 - Jangan spam request ke API publik — bisa kena rate limit/block IP.
+- **Chat pribadi ke bot kadang gak diproses / bot kelihatan gak responsif?** Kemungkinan besar ini error kode **463** dari server WhatsApp ("reach-out time-lock") — BUKAN bug di kode bot ini, tapi pembatasan dari WhatsApp sendiri yang paling sering kena di nomor yang pernah di-banned/di-unban atau nomor baru yang belum "dipanaskan". Sejak update ini, kalau kejadian lagi bakal ada log jelas di terminal (cari `[ack]` atau `kode 463`). Kalau sering muncul: jangan kirim pesan ke banyak nomor asing sekaligus dalam waktu singkat, pastikan `@whiskeysockets/baileys` versi terbaru (`npm update @whiskeysockets/baileys`), dan kalau nomornya emang pernah kena pembatasan WA, mungkin perlu nunggu beberapa hari atau pakai nomor lain. Detail teknisnya ada di [issue #2441 di repo Baileys](https://github.com/WhiskeySockets/Baileys/issues/2441).
 
 ## Lisensi
 

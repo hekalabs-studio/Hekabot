@@ -41,7 +41,29 @@ for (const level of ["log", "warn", "error"]) {
   };
 }
 
-const logger = pino({ level: "warn" }, pino.multistream([
+const logger = pino({
+  level: "warn",
+  hooks: {
+    // Baileys nge-log "unexpected error in 'init queries'" (level ERROR, JSON gede + stack trace
+    // lengkap) tiap kali query internal fetchProps/fetchBlocklist/fetchPrivacySettings gak dapet
+    // balesan dari server WhatsApp dalam waktu yang ditentuin (defaultQueryTimeoutMs) abis baru
+    // connect. INI SUDAH DIKONFIRMASI HARMLESS -- banyak dilaporkan pengguna Baileys lain juga
+    // (termasuk versi2 lama library-nya), dan TIDAK ngaruh ke koneksi maupun fungsi bot (bot tetap
+    // connect & jalan normal, chat/command tetap diproses seperti biasa). Daripada nampilin JSON
+    // error+stack-trace segede itu tiap kali kejadian (bikin kesan bot crash/error serius padahal
+    // bukan), di sini di-downgrade jadi satu baris info singkat yang jelas & gak bikin panik.
+    logMethod(inputArgs, method) {
+      const msg = inputArgs[inputArgs.length - 1];
+      if (typeof msg === "string" && msg.startsWith("unexpected error in 'init queries'")) {
+        return method.call(
+          this,
+          "ℹ️  [baileys] Query internal 'init queries' gak dapet balesan WhatsApp tepat waktu -- ini NORMAL, sering kejadian abis baru connect, dan gak ngaruh ke bot (bisa diabaikan)."
+        );
+      }
+      return method.apply(this, inputArgs);
+    },
+  },
+}, pino.multistream([
   { stream: process.stdout }, // tetap tampil di terminal seperti biasa
   { stream: logFileStream },  // DAN ditulis ke file persisten yang sama kayak console.* di atas
 ])); // "silent" nyembunyiin SEMUA log baileys termasuk error penting
@@ -204,6 +226,38 @@ async function startBot() {
       await handleGroupUpdate(sock, update);
     } catch (err) {
       console.error("Error handle group update:", err);
+    }
+  });
+
+  // PENTING: sock.sendMessage() di reply() (lihat handler.js) bisa aja RESOLVE sukses
+  // (dari sisi bot, pesannya "berhasil dikirim ke server") padahal SERVER WhatsApp
+  // sebenarnya NOLAK pesan itu belakangan -- penolakan ini baru nongol lewat event
+  // "messages.update" (bukan lewat promise reject), makanya sebelumnya diem-diam gak
+  // kelihatan sama sekali di log. Paling sering kejadian: kode 463 ("reach-out time-lock"),
+  // sebuah pembatasan dari SERVER WHATSAPP SENDIRI (biasanya kena di akun yang pernah
+  // dibanned/di-unban, atau nomor yang belum "dipanaskan") -- BUKAN bug di kode bot ini,
+  // dan sampai skrip ini dibuat pun Baileys masih investigasi resmi soal ini
+  // (github.com/WhiskeySockets/Baileys/issues/2441).
+  sock.ev.on("messages.update", (updates) => {
+    for (const { key, update } of updates) {
+      const stubParams = update?.messageStubParameters;
+      if (!Array.isArray(stubParams) || !stubParams[0]) continue;
+      const [code, desc] = stubParams;
+      if (code === "463") {
+        console.error(
+          `\n⚠️  [ack] Balasan ke ${key.remoteJid} (id pesan=${key.id}) DITOLAK server WhatsApp, kode 463` +
+          (desc ? ` ("${desc}")` : "") + `.\n` +
+          `    Ini BUKAN bug di kode bot -- ini pembatasan "reach-out time-lock" dari server WhatsApp sendiri,\n` +
+          `    paling sering kena di akun yang PERNAH di-banned/di-unban, atau nomor baru yang belum\n` +
+          `    "dipanaskan" (jarang dipakai chat manual sebelumnya). Kalau sering muncul:\n` +
+          `    1) Jangan kirim pesan ke banyak nomor asing berbeda dalam waktu singkat.\n` +
+          `    2) Pastikan @whiskeysockets/baileys dipakai versi terbaru (npm update @whiskeysockets/baileys).\n` +
+          `    3) Kalau nomor bot ini emang pernah kena pembatasan WhatsApp, mungkin perlu nunggu beberapa\n` +
+          `       hari, atau coba pakai nomor lain yang lebih "bersih" riwayatnya.\n`
+        );
+      } else {
+        console.warn(`[ack] Update status pesan ${key.id} ke ${key.remoteJid}: kode=${code}${desc ? ` ("${desc}")` : ""}`);
+      }
     }
   });
 

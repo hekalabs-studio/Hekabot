@@ -1,5 +1,6 @@
 const { evaluate } = require("mathjs");
 const config = require("../config");
+const p = config.prefix;
 const { apiGet } = require("../lib/api");
 const { findUrls, findText } = require("../lib/extract");
 const ytdlp = require("../lib/ytdlp");
@@ -59,7 +60,7 @@ module.exports = [
   {
     name: "cekbillpln",
     run: async ({ text, reply }) => {
-      if (!text) return reply("Masukkan ID pelanggan PLN.\nContoh: *cekbillpln 530000000000*");
+      if (!text) return reply(`Masukkan ID pelanggan PLN.\nContoh: *${p}cekbillpln 530000000000*`);
       const res = await apiGet("cekbillpln", { id: text.trim() });
       reply(findText(res) || JSON.stringify(res, null, 2).slice(0, 1500));
     },
@@ -70,7 +71,7 @@ module.exports = [
     name: "cekdevice",
     aliases: ["cekhp", "spekhp", "specdevice"],
     run: async ({ text, reply }) => {
-      if (!text) return reply("Tulis nama HP yang mau dicari.\nContoh: *cekdevice Poco X6 Pro* atau *cekdevice iPhone 15*");
+      if (!text) return reply(`Tulis nama HP yang mau dicari.\nContoh: *${p}cekdevice Poco X6 Pro* atau *${p}cekdevice iPhone 15*`);
       const device = await searchDeviceSpecs(text);
       reply(formatDeviceSpecs(device, text));
     },
@@ -81,9 +82,9 @@ module.exports = [
     name: "cutmp3",
     run: async ({ m, sock, text, reply }) => {
       const media = await resolveMedia(sock, m);
-      if (!media || media.type !== "audio") return reply("Reply audio yang mau dipotong, dengan caption *cutmp3 start,durasi* (detik). Contoh: `cutmp3 10,15`");
+      if (!media || media.type !== "audio") return reply(`Reply audio yang mau dipotong, dengan caption *${p}cutmp3 start,durasi* (detik). Contoh: *${p}cutmp3 10,15*`);
       const [start, dur] = text.split(",").map((v) => parseFloat(v.trim()));
-      if (isNaN(start) || isNaN(dur)) return reply("Format salah. Contoh: *cutmp3 10,15* (mulai detik ke-10, durasi 15 detik)");
+      if (isNaN(start) || isNaN(dur)) return reply(`Format salah. Contoh: *${p}cutmp3 10,15* (mulai detik ke-10, durasi 15 detik)`);
 
       const buffer = await cutAudio(media.buffer, "mp3", start, dur);
       await reply({ audio: buffer, mimetype: "audio/mpeg", fileName: "cut.mp3" });
@@ -95,7 +96,7 @@ module.exports = [
     name: "drivelink",
     run: async ({ jid, sock, text, reply }) => {
       const link = (text.match(/https?:\/\/\S+/i) || [])[0];
-      if (!link) return reply("Kirim link Google Drive-nya.\nContoh: *drivelink https://drive.google.com/...*");
+      if (!link) return reply(`Kirim link Google Drive-nya.\nContoh: *${p}drivelink https://drive.google.com/...*`);
       const buffer = await downloadDriveFile(link);
       await reply({ document: buffer, fileName: "drivefile", mimetype: "application/octet-stream" });
     },
@@ -146,7 +147,7 @@ module.exports = [
   {
     name: "iqc",
     run: async ({ jid, sock, text, m, reply }) => {
-      if (!text) return reply("Tulis teks yang mau dijadikan quote.\nContoh: *iqc Hidup itu singkat*");
+      if (!text) return reply(`Tulis teks yang mau dijadikan quote.\nContoh: *${p}iqc Hidup itu singkat*`);
       const pushname = m.pushName || "User";
       const payload = {
         type: "quote",
@@ -177,7 +178,7 @@ module.exports = [
     name: "kalkukator",
     aliases: ["kalkulator"],
     run: async ({ text, reply }) => {
-      if (!text) return reply("Tulis operasi hitungnya.\nContoh: *kalkukator (25*4)+10/2*");
+      if (!text) return reply(`Tulis operasi hitungnya.\nContoh: *${p}kalkukator (25*4)+10/2*`);
       try {
         const result = evaluate(text);
         reply(`${text} = *${result}*`);
@@ -191,7 +192,7 @@ module.exports = [
   {
     name: "kodepos",
     run: async ({ text, reply }) => {
-      if (!text) return reply("Tulis nama daerah (kelurahan/kecamatan/kota) atau kode pos 5 digit.\nContoh: *kodepos Cikarang* atau *kodepos 17530*");
+      if (!text) return reply(`Tulis nama daerah (kelurahan/kecamatan/kota) atau kode pos 5 digit.\nContoh: *${p}kodepos Cikarang* atau *${p}kodepos 17530*`);
       const results = await searchKodepos(text);
       reply(formatKodeposResults(results, text));
     },
@@ -202,7 +203,7 @@ module.exports = [
     name: "ocr",
     run: async ({ m, sock, reply }) => {
       const media = await resolveMedia(sock, m);
-      if (!media || media.type !== "image") return reply("Kirim/reply gambar dengan caption *ocr* ya.");
+      if (!media || media.type !== "image") return reply(`Kirim/reply gambar dengan caption *${p}ocr* ya.`);
       const text = await recognizeText(media.buffer);
       reply(text || "Tidak ada teks yang terbaca dari gambar ini.");
     },
@@ -212,7 +213,7 @@ module.exports = [
   {
     name: "readmore",
     run: async ({ text, reply }) => {
-      if (!text.includes("|")) return reply("Format: *readmore [teks pendek]|[teks panjang]*\nContoh: *readmore Judul Berita|Isi berita lengkap di sini...*");
+      if (!text.includes("|")) return reply(`Format: *${p}readmore [teks pendek]|[teks panjang]*\nContoh: *${p}readmore Judul Berita|Isi berita lengkap di sini...*`);
       const [short, long] = text.split("|");
       const hidden = "\u200E".repeat(4001); // memaksa WA menyembunyikan teks setelahnya di balik "Baca selengkapnya"
       reply(`${short.trim()}${hidden}\n${long.trim()}`);
@@ -228,7 +229,7 @@ module.exports = [
     heavy: true, // load model AI (ONNX) ke RAM tiap dipanggil, paling boros di antara semua command
     run: async ({ jid, sock, m, reply }) => {
       const media = await resolveMedia(sock, m);
-      if (!media || media.type !== "image") return reply("Kirim/reply gambar dengan caption *removebg* ya.");
+      if (!media || media.type !== "image") return reply(`Kirim/reply gambar dengan caption *${p}removebg* ya.`);
       const result = await removeBg(media.buffer);
       await reply({ image: result });
     },
@@ -238,7 +239,7 @@ module.exports = [
   {
     name: "ytfull",
     run: async ({ text, reply }) => {
-      if (!text) return reply("Tulis judul atau link video YouTube.\nContoh: *ytfull Tulus Hati-Hati di Jalan*");
+      if (!text) return reply(`Tulis judul atau link video YouTube.\nContoh: *${p}ytfull Tulus Hati-Hati di Jalan*`);
       const info = await ytdlp.getInfo(text);
       const durMin = Math.floor((info.duration || 0) / 60);
       const durSec = (info.duration || 0) % 60;
@@ -258,7 +259,7 @@ module.exports = [
     name: "yttranscript",
     run: async ({ text, reply }) => {
       const link = (text.match(/https?:\/\/\S+/i) || [])[0];
-      if (!link) return reply("Kirim link video YouTube-nya.\nContoh: *yttranscript https://youtu.be/...*");
+      if (!link) return reply(`Kirim link video YouTube-nya.\nContoh: *${p}yttranscript https://youtu.be/...*`);
       const transcript = await ytdlp.getTranscript(link);
       reply(transcript.slice(0, 4000) || "Transkrip tidak ditemukan untuk video ini.");
     },

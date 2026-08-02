@@ -5,6 +5,7 @@ const config = require("../config");
 const { DOWNLOADER_MENU, TOOLS_MENU, STICKER_MENU, FUN_MENU, GAME_MENU, INTERNET_MENU, GROUP_MENU, MAIN_MENU } = require("../lib/menu");
 const { getAllUsers } = require("../lib/userStore");
 const { buildHelpText } = require("../lib/help");
+const p = config.prefix;
 
 const BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 
@@ -87,18 +88,21 @@ module.exports = [
       const freeMem = os.freemem();
       const usedMemPercent = (((totalMem - freeMem) / totalMem) * 100).toFixed(1);
       reply(
-        `🤖 *${config.botName}*\n\n` +
-        `Kode Bot: ${config.botCode}\n` +
-        `Owner: ${config.ownerName}\n` +
-        `Uptime: ${formatUptime(Date.now() - startTime)}\n\n` +
-        `*Sistem yang dipakai server*\n` +
-        `Platform: ${os.platform()} ${os.release()} (${os.arch()})\n` +
-        `CPU: ${cpus[0]?.model || "-"} (${cpus.length} core)\n` +
-        `RAM: ${formatBytes(totalMem)} (terpakai ${usedMemPercent}%)\n` +
-        `Node.js: ${process.version}\n\n` +
-        `Ketik *menu* buat lihat semua fitur, atau *help* buat panduan pemakaian.\n` +
-        `Ketik *support* buat lihat lisensi bot & link dukungan ke owner.\n` +
-        `(Mau spek server lebih detail lagi? Owner bisa pakai *.resource*)`
+        `╭─❍ 🤖 *${config.botName.toUpperCase()}* ❍─╮\n` +
+        `│ ✧ Kode Bot : ${config.botCode}\n` +
+        `│ 👤 Owner    : ${config.ownerName}\n` +
+        `│ ⏱️ Uptime   : ${formatUptime(Date.now() - startTime)}\n` +
+        `╰────────────────────╯\n\n` +
+        `🖥️ *Spesifikasi Server*\n` +
+        `📦 Platform : ${os.platform()} ${os.release()} (${os.arch()})\n` +
+        `⚙️ CPU      : ${cpus[0]?.model || "-"} (${cpus.length} core)\n` +
+        `💾 RAM      : ${formatBytes(totalMem)} (terpakai ${usedMemPercent}%)\n` +
+        `🟢 Node.js  : ${process.version}\n\n` +
+        `┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄\n\n` +
+        `📋 Ketik *${p}menu* buat lihat semua fitur\n` +
+        `📖 Ketik *${p}help* buat panduan pemakaian\n` +
+        `💖 Ketik *${p}support* buat lisensi & link dukungan\n` +
+        `🔍 Mau spek server lebih detail? Owner bisa pakai *.resource*`
       );
     },
   },
@@ -109,17 +113,18 @@ module.exports = [
     ownerOnly: true,
     run: async ({ reply }) => {
       const users = getAllUsers();
-      if (!users.length) return reply("📂 *DATABASE HEKABOT*\n\nBelum ada user yang terdaftar.");
+      if (!users.length) return reply(`📂 *DATABASE ${config.botName.toUpperCase()}*\n\n📭 Belum ada user yang terdaftar.`);
 
-      let out = `📂 *DATABASE HEKABOT*\nTotal User: ${users.length}\n`;
+      let out = `╭─❍ 📂 *DATABASE ${config.botName.toUpperCase()}* ❍─╮\n│ 👥 Total User : ${users.length}\n╰────────────────────╯\n`;
       for (const u of users) {
+        const statusIcon = u.active === false ? "🔴 nonaktif" : "🟢 aktif";
         out +=
-          `────────────────\n` +
-          `ID: ${u.id}\n` +
-          `Nama: ${u.name}\n` +
-          `Nomor: ${u.number}\n` +
-          `Terdaftar: ${formatTanggalWIB(u.registeredAt)}\n` +
-          `Status: ${u.active === false ? "nonaktif" : "aktif"}\n`;
+          `┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄\n` +
+          `🆔 ID        : ${u.id}\n` +
+          `👤 Nama      : ${u.name}\n` +
+          `📱 Nomor     : ${u.number}\n` +
+          `🗓️ Terdaftar : ${formatTanggalWIB(u.registeredAt)}\n` +
+          `📶 Status    : ${statusIcon}\n`;
       }
       reply(out);
     },
@@ -130,16 +135,17 @@ module.exports = [
     name: "list",
     run: async ({ reply }) => {
       reply(
-        `📋 *Daftar Kategori Fitur*\n\n` +
-        `• Main: ${MAIN_MENU.length} fitur\n` +
-        `• Downloader: ${DOWNLOADER_MENU.length} fitur\n` +
-        `• Tools: ${TOOLS_MENU.length} fitur\n` +
-        `• Sticker: ${STICKER_MENU.length} fitur\n` +
-        `• Fun: ${FUN_MENU.length} fitur\n` +
-        `• Game: ${GAME_MENU.length} fitur\n` +
-        `• Internet: ${INTERNET_MENU.length} fitur\n` +
-        `• Group: ${GROUP_MENU.length} fitur\n\n` +
-        `Ketik *menu* buat lihat detail semua fitur per kategori.`
+        `╭─❍ 📋 *DAFTAR KATEGORI FITUR* ❍─╮\n` +
+        `│ 🏠 Main       : ${MAIN_MENU.length} fitur\n` +
+        `│ ⬇️ Downloader : ${DOWNLOADER_MENU.length} fitur\n` +
+        `│ 🛠️ Tools      : ${TOOLS_MENU.length} fitur\n` +
+        `│ 🎨 Sticker    : ${STICKER_MENU.length} fitur\n` +
+        `│ 🎭 Fun        : ${FUN_MENU.length} fitur\n` +
+        `│ 🎮 Game       : ${GAME_MENU.length} fitur\n` +
+        `│ 🌐 Internet   : ${INTERNET_MENU.length} fitur\n` +
+        `│ 👥 Group      : ${GROUP_MENU.length} fitur\n` +
+        `╰────────────────────╯\n\n` +
+        `📌 Ketik *${p}menu* buat lihat detail semua fitur per kategori.`
       );
     },
   },
@@ -165,7 +171,8 @@ module.exports = [
       const now = Date.now();
       const sentAt = m.messageTimestamp ? m.messageTimestamp * 1000 : now;
       const latency = Math.max(0, now - sentAt);
-      reply(`🏓 Pong! ${latency}ms`);
+      const speedTag = latency < 1000 ? "⚡ Kencang!" : latency < 3000 ? "🙂 Normal" : "🐢 Agak lemot";
+      reply(`🏓 *Pong!*\n⏱️ ${latency}ms — ${speedTag}`);
     },
   },
 
@@ -198,27 +205,27 @@ module.exports = [
       const loadAvg = os.loadavg(); // [1m, 5m, 15m] -- selalu [0,0,0] di Windows, normal aja itu
 
       reply(
-        `💻 *Resource & Spesifikasi Server*\n\n` +
-        `*CPU*\n` +
-        `Model: ${cpus[0]?.model || "-"}\n` +
-        `Jumlah core: ${cpus.length}\n` +
-        `Kecepatan: ${cpus[0]?.speed ? (cpus[0].speed / 1000).toFixed(2) + " GHz" : "-"}\n` +
-        `Pemakaian saat ini: ${cpuUsagePercent.toFixed(1)}%\n` +
-        (loadAvg[0] > 0 ? `Load average: ${loadAvg.map((n) => n.toFixed(2)).join(", ")} (1m, 5m, 15m)\n` : "") +
-        `\n*RAM*\n` +
-        `${formatBytes(usedMem)} / ${formatBytes(totalMem)} terpakai (${memPercent}%)\n` +
-        `\n*Disk (partisi project ini)*\n` +
-        `${diskInfo}\n` +
-        `\n*Sistem Operasi*\n` +
-        `Platform: ${os.platform()} ${os.release()} (${os.arch()})\n` +
-        `Hostname: ${os.hostname()}\n` +
-        `System uptime: ${formatUptime(os.uptime() * 1000)}\n` +
-        `\n*Proses Bot*\n` +
-        `Node.js: ${process.version}\n` +
-        `RSS (total memory proses): ${formatBytes(mem.rss)}\n` +
-        `Heap: ${formatBytes(mem.heapUsed)} / ${formatBytes(mem.heapTotal)}\n` +
-        `Bot uptime: ${formatUptime(Date.now() - startTime)}\n` +
-        `PID: ${process.pid}`
+        `╭─❍ 💻 *RESOURCE & SPESIFIKASI SERVER* ❍─╮\n╰────────────────────╯\n\n` +
+        `⚙️ *CPU*\n` +
+        `▸ Model     : ${cpus[0]?.model || "-"}\n` +
+        `▸ Core      : ${cpus.length}\n` +
+        `▸ Kecepatan : ${cpus[0]?.speed ? (cpus[0].speed / 1000).toFixed(2) + " GHz" : "-"}\n` +
+        `▸ Pemakaian : ${cpuUsagePercent.toFixed(1)}%\n` +
+        (loadAvg[0] > 0 ? `▸ Load avg  : ${loadAvg.map((n) => n.toFixed(2)).join(", ")} (1m, 5m, 15m)\n` : "") +
+        `\n💾 *RAM*\n` +
+        `▸ ${formatBytes(usedMem)} / ${formatBytes(totalMem)} terpakai (${memPercent}%)\n` +
+        `\n🗄️ *Disk (partisi project ini)*\n` +
+        `▸ ${diskInfo}\n` +
+        `\n🖥️ *Sistem Operasi*\n` +
+        `▸ Platform : ${os.platform()} ${os.release()} (${os.arch()})\n` +
+        `▸ Hostname : ${os.hostname()}\n` +
+        `▸ Uptime   : ${formatUptime(os.uptime() * 1000)}\n` +
+        `\n🟢 *Proses Bot*\n` +
+        `▸ Node.js    : ${process.version}\n` +
+        `▸ RSS        : ${formatBytes(mem.rss)}\n` +
+        `▸ Heap       : ${formatBytes(mem.heapUsed)} / ${formatBytes(mem.heapTotal)}\n` +
+        `▸ Bot uptime : ${formatUptime(Date.now() - startTime)}\n` +
+        `▸ PID        : ${process.pid}`
       );
     },
   },
@@ -227,7 +234,11 @@ module.exports = [
   {
     name: "runtime",
     run: async ({ text, reply }) => {
-      reply(`⏱️ *Runtime Bot*\n\nSudah berjalan selama: ${formatUptime(Date.now() - startTime)}${text ? `\nCatatan: ${text}` : ""}`);
+      reply(
+        `⏱️ *Runtime Bot*\n\n` +
+        `🟢 Sudah berjalan selama: *${formatUptime(Date.now() - startTime)}*` +
+        (text ? `\n📝 Catatan: ${text}` : "")
+      );
     },
   },
 
@@ -244,9 +255,14 @@ module.exports = [
         const elapsedSec = (Date.now() - start) / 1000;
         const megabits = (res.data.length * 8) / 1_000_000;
         const speedMbps = (megabits / elapsedSec).toFixed(2);
-        reply(`🚀 *Speedtest Server*\n\nDownload: ${speedMbps} Mbps\nWaktu: ${elapsedSec.toFixed(2)}s\nFile test: 10MB`);
+        reply(
+          `🚀 *Speedtest Server*\n\n` +
+          `📶 Download : ${speedMbps} Mbps\n` +
+          `⏱️ Waktu    : ${elapsedSec.toFixed(2)}s\n` +
+          `📦 File tes : 10MB`
+        );
       } catch {
-        reply("Gagal melakukan speedtest, coba lagi nanti.");
+        reply("❌ Gagal melakukan speedtest, coba lagi nanti.");
       }
     },
   },
@@ -256,12 +272,12 @@ module.exports = [
     name: "status",
     ownerOnly: true,
     run: async ({ sock, text, reply }) => {
-      if (!text) return reply("Set status WhatsApp bot ini.\nContoh: *status Lagi online, siap bantu!*");
+      if (!text) return reply(`📝 Set status WhatsApp bot ini.\n_Contoh:_ *${p}status Lagi online, siap bantu!*`);
       try {
         await sock.updateProfileStatus(text);
-        reply(`✅ Status bot berhasil diubah jadi:\n"${text}"`);
+        reply(`✅ *Status berhasil diubah!*\n💬 "${text}"`);
       } catch (err) {
-        reply("Gagal update status: " + err.message);
+        reply("❌ Gagal update status: " + err.message);
       }
     },
   },
@@ -279,16 +295,22 @@ module.exports = [
     name: "support",
     run: async ({ reply }) => {
       reply(
-        `📜 *Lisensi ${config.botName}* (${config.botCode})\n\n` +
-        `Owner: ${config.ownerName}\n` +
-        `Instagram: ${config.instagram}\n\n` +
-        `• Boleh dipakai/dimodifikasi bebas untuk keperluan pribadi/non-komersial.\n` +
-        `• Wajib mencantumkan atribusi ke owner asli di setiap salinan/fork/redistribusi.\n` +
-        `• Dilarang mengklaim sebagai karya sendiri atau menjual tanpa izin tertulis owner.\n` +
-        `• Disediakan "AS IS" tanpa jaminan apa pun.\n` +
-        `(Teks lengkap ada di file LICENSE pada source code bot ini.)\n\n` +
+        `╭─❍ 📜 *LISENSI ${config.botName.toUpperCase()}* ❍─╮\n` +
+        `│ ✧ Kode Bot : ${config.botCode}\n` +
+        `│ 👤 Owner    : ${config.ownerName}\n` +
+        `│ 📸 IG       : ${config.instagram}\n` +
+        `╰────────────────────╯\n\n` +
+        `✨ *Ketentuan Pemakaian*\n` +
+        `✅ Bebas dipakai & dimodif untuk keperluan pribadi/non-komersial\n` +
+        `🏷️ Wajib cantumin atribusi ke owner di tiap salinan/fork/redistribusi\n` +
+        `🚫 Dilarang klaim jadi karya sendiri atau dijual tanpa izin tertulis owner\n` +
+        `⚠️ Disediakan apa adanya (*AS IS*), tanpa jaminan dalam bentuk apa pun\n\n` +
+        `📄 _Teks lengkap ada di file LICENSE pada source code bot ini._\n\n` +
+        `┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄\n\n` +
         `💖 *Dukung Pengembangan Bot Ini*\n` +
-        `https://saweria.co/NovemasHeka`
+        `Kalau ${config.botName} bermanfaat buat kamu, yuk traktir owner-nya secangkir kopi ☕\n` +
+        `🔗 https://saweria.co/NovemasHeka\n\n` +
+        `Makasih udah pakai *${config.botName}*! 🎉`
       );
     },
   },

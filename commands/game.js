@@ -1,3 +1,5 @@
+const config = require("../config");
+const p = config.prefix;
 const { startSession } = require("../lib/gameSession");
 const {
   ASAHOTAK,
@@ -28,7 +30,7 @@ function tebakCommand(name, bank, { title, formatQuestion } = {}) {
       });
       const question = formatQuestion ? formatQuestion(item) : item.q;
       await reply(
-        `${title ? `*${title}*\n\n` : ""}${question}\n\n_Jawab langsung di chat ini (${TIMEOUT_MS / 1000} detik). Ketik *nyerah* buat nyerah._`
+        `${title ? `*${title}*\n\n` : ""}${question}\n\n_Jawab langsung di chat ini (${TIMEOUT_MS / 1000} detik). Ketik *${p}nyerah* buat nyerah._`
       );
     },
   };
@@ -79,7 +81,7 @@ module.exports = [
         onTimeout: () => reply({ text: `⏰ Waktu habis! Jawabannya: *${word}*` }),
       });
       await reply(
-        `🔤 *Susun Kata*\n\nSusun huruf ini jadi kata yang benar:\n*${scrambled.toUpperCase()}*\n\n_Jawab langsung di chat ini (${TIMEOUT_MS / 1000} detik). Ketik *nyerah* buat nyerah._`
+        `🔤 *Susun Kata*\n\nSusun huruf ini jadi kata yang benar:\n*${scrambled.toUpperCase()}*\n\n_Jawab langsung di chat ini (${TIMEOUT_MS / 1000} detik). Ketik *${p}nyerah* buat nyerah._`
       );
     },
   },
@@ -120,7 +122,7 @@ module.exports = [
         onTimeout: () => reply({ text: `⏰ Waktu habis! Jawabannya: *${correct}*` }),
       });
       await reply(
-        `🧩 *Terasaurus*\n\n${prompt}\n\n${optionText}\n\n_Jawab dengan mengetik salah satu KATA pilihan di atas (bukan huruf A/B/C/D). Waktu ${TIMEOUT_MS / 1000} detik. Ketik *nyerah* buat nyerah._`
+        `🧩 *Terasaurus*\n\n${prompt}\n\n${optionText}\n\n_Jawab dengan mengetik salah satu KATA pilihan di atas (bukan huruf A/B/C/D). Waktu ${TIMEOUT_MS / 1000} detik. Ketik *${p}nyerah* buat nyerah._`
       );
     },
   },
@@ -133,13 +135,13 @@ module.exports = [
       if (!text || /^(mulai|start|new|reset)$/i.test(text)) {
         const board = generateBoard(5, 4);
         boards.set(jid, board);
-        return reply(`💣 *Minesweeper* dimulai! Grid 5x5, 4 ranjau tersembunyi.\n\nKetik *minesweeper A1* (kolom+baris) buat buka petak.\n\n${renderBoard(board)}`);
+        return reply(`💣 *Minesweeper* dimulai! Grid 5x5, 4 ranjau tersembunyi.\n\nKetik *${p}minesweeper A5* (kolom+baris) buat buka petak.\n\n${renderBoard(board)}`);
       }
       const board = boards.get(jid);
-      if (!board) return reply("Belum ada game aktif. Ketik *minesweeper* buat mulai.");
+      if (!board) return reply(`Belum ada game aktif. Ketik *${p}minesweeper* buat mulai.`);
       const coord = parseCoord(text);
       if (!coord || coord.row < 0 || coord.row >= board.size || coord.col < 0 || coord.col >= board.size) {
-        return reply("Format koordinat salah. Contoh: *minesweeper B3*");
+        return reply(`Format koordinat salah. Contoh: *${p}minesweeper B3*`);
       }
       reveal(board, coord.row, coord.col);
       if (board.gameOver) {
@@ -161,10 +163,10 @@ module.exports = [
       const cmd = (text || "").trim().toLowerCase();
       if (!ulartanggaPlayers.has(jid) || ["mulai", "start", "reset"].includes(cmd)) {
         ulartanggaPlayers.set(jid, { pos: 0 });
-        return reply("🎲 *Ular Tangga* dimulai! Posisi awal: 0/30.\nKetik *ulartangga roll* buat lempar dadu.");
+        return reply(`🎲 *Ular Tangga* dimulai! Posisi awal: 0/30.\nKetik *${p}ulartangga roll* buat lempar dadu.`);
       }
       if (!["roll", "lempar", "main"].includes(cmd)) {
-        return reply("Ketik *ulartangga roll* buat lempar dadu, atau *ulartangga mulai* buat reset.");
+        return reply(`Ketik *${p}ulartangga roll* buat lempar dadu, atau *${p}ulartangga mulai* buat reset.`);
       }
       const player = ulartanggaPlayers.get(jid);
       const dice = Math.floor(Math.random() * 6) + 1;
