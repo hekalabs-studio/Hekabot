@@ -97,6 +97,7 @@ module.exports = [
         `RAM: ${formatBytes(totalMem)} (terpakai ${usedMemPercent}%)\n` +
         `Node.js: ${process.version}\n\n` +
         `Ketik *menu* buat lihat semua fitur, atau *help* buat panduan pemakaian.\n` +
+        `Ketik *support* buat lihat lisensi bot & link dukungan ke owner.\n` +
         `(Mau spek server lebih detail lagi? Owner bisa pakai *.resource*)`
       );
     },
@@ -270,6 +271,25 @@ module.exports = [
     name: "help",
     run: async ({ reply }) => {
       reply(buildHelpText());
+    },
+  },
+
+  // support - ringkasan lisensi bot + link dukungan/donasi ke owner
+  {
+    name: "support",
+    run: async ({ reply }) => {
+      reply(
+        `📜 *Lisensi ${config.botName}* (${config.botCode})\n\n` +
+        `Owner: ${config.ownerName}\n` +
+        `Instagram: ${config.instagram}\n\n` +
+        `• Boleh dipakai/dimodifikasi bebas untuk keperluan pribadi/non-komersial.\n` +
+        `• Wajib mencantumkan atribusi ke owner asli di setiap salinan/fork/redistribusi.\n` +
+        `• Dilarang mengklaim sebagai karya sendiri atau menjual tanpa izin tertulis owner.\n` +
+        `• Disediakan "AS IS" tanpa jaminan apa pun.\n` +
+        `(Teks lengkap ada di file LICENSE pada source code bot ini.)\n\n` +
+        `💖 *Dukung Pengembangan Bot Ini*\n` +
+        `https://saweria.co/NovemasHeka`
+      );
     },
   },
 ];

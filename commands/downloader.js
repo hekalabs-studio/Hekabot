@@ -53,6 +53,25 @@ function ytdlpAudioCommand(name, aliases = []) {
   };
 }
 
+/**
+ * Command generik LOKAL: link -> yt-dlp -> kirim SEMUA foto/slide (carousel Instagram,
+ * slideshow/photo-mode TikTok) sebagai gambar terpisah, bukan video.
+ */
+function ytdlpImagesCommand(name, aliases = []) {
+  return {
+    name,
+    aliases,
+    run: async ({ jid, sock, args, text, reply }) => {
+      const link = getLink(args, text);
+      if (!link) return reply(`Kirim link-nya juga ya.\nContoh: *${name} https://...*`);
+      const { buffers, title } = await ytdlp.downloadImages(link);
+      for (let i = 0; i < buffers.length; i++) {
+        await reply({ image: buffers[i], caption: i === 0 ? title : undefined });
+      }
+    },
+  };
+}
+
 // ============================================================
 // Masih via API siputzx (yt-dlp gak support platform ini: CapCut export,
 // RedNote/Xiaohongshu, Scribd, SlideShare, Spotify [DRM], Telegram sticker, Terabox)
@@ -131,12 +150,13 @@ function ytmp4Command() {
 module.exports = [
   // --- LOKAL via yt-dlp ---
   ytdlpVideoCommand("fbdl", ["facebookdl"]),
-  ytdlpVideoCommand("igdl", ["instagramdl"]), // catatan: post foto-only Instagram mungkin gak ke-grab, yt-dlp fokus video/reels
+  ytdlpVideoCommand("igdl", ["instagramdl"]), // video/reels Instagram -- buat post foto/carousel pakai .igslide
+  ytdlpImagesCommand("igslide", ["instagramslide", "igcarousel"]), // foto/carousel Instagram
   ytdlpVideoCommand("pinterestdl"),
   ytdlpVideoCommand("threads"),
   ytdlpAudioCommand("ttmp3"),
   ytdlpVideoCommand("ttmp4"),
-  ytdlpVideoCommand("ttslide"), // catatan: TikTok slideshow/foto, hasil bisa bervariasi
+  ytdlpImagesCommand("ttslide", ["tiktokslide"]), // slideshow/photo-mode TikTok (foto, bukan video)
   ytdlpVideoCommand("twitter", ["xdl"]),
   playCommand("play"),
   ytmp3Command(),

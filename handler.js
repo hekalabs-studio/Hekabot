@@ -1,5 +1,5 @@
 const config = require("./config");
-const { buildMenu } = require("./lib/menu");
+const { buildMenu, buildCategoryMenu, resolveMenuAlias } = require("./lib/menu");
 const { buildHelpText } = require("./lib/help");
 const { getText } = require("./lib/media");
 const { getSession, checkAnswer, endSession } = require("./lib/gameSession");
@@ -202,6 +202,25 @@ async function handleMessage(sock, m) {
       }
     }
     return reply(buildMenu());
+  }
+
+  // Menu per-kategori (misal "menudl" buat downloader, "menutl" buat tools) --
+  // dicek baik dengan prefix maupun tanpa prefix, sama kayak "menu" biasa.
+  const menuAliasCandidate =
+    config.prefix && lower.startsWith(config.prefix) ? lower.slice(config.prefix.length) : lower;
+  const menuCategory = resolveMenuAlias(menuAliasCandidate);
+  if (menuCategory) {
+    const bannerPath = getBannerPath("banner_menu");
+    const categoryText = buildCategoryMenu(menuCategory.key);
+    if (bannerPath) {
+      try {
+        return await reply({ image: { url: bannerPath }, caption: categoryText });
+      } catch (err) {
+        console.error("Gagal kirim banner menu kategori:", err.message);
+        return reply(categoryText);
+      }
+    }
+    return reply(categoryText);
   }
 
   // "help" tanpa prefix -- panduan pemakaian bot (beda dari menu)

@@ -74,7 +74,7 @@ untuk melihat semua fitur. Command lain dipanggil dengan prefix, contoh:
 ## 6. Tentang API downloader/tools
 
 Sebagian besar fitur sekarang **jalan lokal** (gak butuh API pihak ketiga sama sekali):
-- **yt-dlp**: `ytmp3`, `ytmp4`, `play`, `ytfull`, `yttranscript`, **`fbdl`, `igdl`, `pinterestdl`, `threads`, `ttmp3`, `ttmp4`, `ttslide`, `twitter`** (yt-dlp support 1700+ situs, gak cuma YouTube)
+- **yt-dlp**: `ytmp3`, `ytmp4`, `play`, `ytfull`, `yttranscript`, **`fbdl`, `igdl`, `igslide`, `pinterestdl`, `threads`, `ttmp3`, `ttmp4`, `ttslide`, `twitter`** (yt-dlp support 1700+ situs, gak cuma YouTube)
 - **ffmpeg**: `tomp3`, `tovn`, `cutmp3`
 - **Real-ESRGAN**: `hdr`
 - **@imgly/background-removal-node**: `removebg`
@@ -312,3 +312,23 @@ Kalau file itu belum ada, bot otomatis skip bagian gambar dan langsung kirim men
 
 - Ini pakai WhatsApp Web multi-device (tidak resmi/unofficial). Gunakan nomor sekunder, jangan nomor utama, untuk menghindari risiko banned oleh WhatsApp.
 - Jangan spam request ke API publik — bisa kena rate limit/block IP.
+
+## Lisensi
+
+HekaBot (kode bot: `NHA-01`) dilisensikan dengan lisensi custom — lihat file [`LICENSE`](./LICENSE) untuk teks lengkapnya. Ringkasnya:
+
+- Boleh dipakai/dimodifikasi bebas untuk **keperluan pribadi/non-komersial**.
+- **Wajib mencantumkan atribusi** ke owner asli (nama, kontak, link dukungan di bawah) di setiap salinan/fork/redistribusi.
+- **Dilarang mengklaim** sebagai karya sendiri atau menjual tanpa izin tertulis owner.
+- Disediakan **"AS IS"** tanpa jaminan apa pun.
+
+**Owner:** Novemas Heka A
+**WhatsApp:** +6289514433486
+**Instagram:** [@novemash3kaa](https://instagram.com/novemash3kaa)
+
+## Dukungan
+
+Kalau HekaBot bermanfaat buat kamu, dukung pengembangannya lewat:
+👉 **https://saweria.co/NovemasHeka**
+
+Command `.support` di bot juga menampilkan ringkasan lisensi + link dukungan ini.

@@ -1,0 +1,48 @@
+HekaBot License (NHA-01)
+Copyright (c) 2026 Novemas Heka A
+
+Kontak Owner:
+- Nomor WhatsApp : +6289514433486
+- Instagram      : @novemash3kaa
+- Dukungan       : https://saweria.co/NovemasHeka
+
+Dengan menggunakan, menyalin, memodifikasi, atau mendistribusikan source code
+HekaBot ("Software") ini, kamu setuju dengan ketentuan berikut:
+
+1. PENGGUNAAN PRIBADI
+   Software ini boleh digunakan secara bebas untuk keperluan pribadi maupun
+   pembelajaran (non-komersial), termasuk dijalankan sebagai bot WhatsApp
+   milik sendiri.
+
+2. ATRIBUSI WAJIB
+   Setiap salinan, fork, atau redistribusi dari Software ini — baik sebagian
+   maupun seluruhnya — wajib tetap mencantumkan nama owner asli:
+   "Novemas Heka A" beserta tautan dukungan di atas. Nama owner TIDAK BOLEH
+   dihapus, diganti, atau diklaim sebagai milik pihak lain.
+
+3. LARANGAN KLAIM KEPEMILIKAN
+   Kamu tidak diperkenankan mengklaim Software ini (secara utuh maupun hasil
+   modifikasi ringan) sebagai karya original kamu sendiri, atau menjualnya
+   sebagai produk berbayar tanpa izin tertulis dari owner.
+
+4. MODIFIKASI & DISTRIBUSI ULANG
+   Modifikasi diperbolehkan untuk keperluan pribadi. Jika ingin
+   mendistribusikan ulang versi modifikasi secara publik (misal upload ke
+   GitHub publik, dijadikan bot layanan publik, dll), wajib tetap menyertakan
+   file LICENSE ini beserta atribusi owner yang tidak diubah.
+
+5. TANPA JAMINAN (AS IS)
+   Software ini disediakan "AS IS", tanpa jaminan dalam bentuk apa pun, baik
+   tersurat maupun tersirat, termasuk namun tidak terbatas pada jaminan
+   kelayakan untuk tujuan tertentu. Owner tidak bertanggung jawab atas
+   kerugian, kerusakan, atau masalah apa pun yang timbul dari penggunaan
+   Software ini, termasuk risiko pemblokiran akun WhatsApp oleh pihak
+   WhatsApp/Meta akibat penggunaan library tidak resmi (Baileys).
+
+6. DUKUNGAN PROJECT
+   Kalau Software ini bermanfaat buat kamu, kamu bisa mendukung
+   pengembangan HekaBot lebih lanjut lewat:
+   https://saweria.co/NovemasHeka
+
+Command ".bot", ".menu", ".help", dan ".support" pada bot ini menampilkan
+ringkasan lisensi serta tautan dukungan di atas.
