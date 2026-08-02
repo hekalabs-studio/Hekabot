@@ -322,7 +322,23 @@ async function handleMessage(sock, m) {
       // eksekusi gak usah nunggu dua hal kosmetik ini beres duluan.
       sock.sendPresenceUpdate("composing", jid).catch(() => {});
       react("⏳"); // sengaja gak di-await
-      await command.run({ sock, m, jid, args: parsed.args, text: parsed.text, reply });
+
+      // === TIMING: catat berapa lama tiap command diproses ===
+      // Tujuannya biar ada DATA NYATA dari pemakaian sehari-hari -- command mana yang paling
+      // lambat, apakah suatu command tiba-tiba jadi lebih lambat dari biasanya (indikasi API
+      // pihak ketiga lagi bermasalah, dsb) -- tanpa harus nebak-nebak dari feeling doang.
+      // Cuma nyatet timestamp before/after (operasi super murah, gak berasa dampaknya ke
+      // kecepatan bot), terus tulis 1 baris log -- baris ini otomatis ikut kesimpen ke file
+      // di folder logs/ juga (lihat mekanisme tee di index.js), jadi bisa di-grep belakangan.
+      const t0 = Date.now();
+      try {
+        await command.run({ sock, m, jid, args: parsed.args, text: parsed.text, reply });
+        console.log(`[timing] "${parsed.cmd}" oleh ${senderJid} selesai dalam ${Date.now() - t0} ms`);
+      } catch (err) {
+        console.log(`[timing] "${parsed.cmd}" oleh ${senderJid} GAGAL setelah ${Date.now() - t0} ms`);
+        throw err; // lempar lagi -- biar ditangani sama catch di luar seperti biasa (react ❌ + reply error)
+      }
+
       await react("✅"); // command sukses dijalankan
     } catch (err) {
       console.error(`Error di command "${parsed.cmd}":`, err.message);

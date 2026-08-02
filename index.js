@@ -109,6 +109,7 @@ async function startBot() {
   const {
     default: makeWASocket,
     useMultiFileAuthState,
+    makeCacheableSignalKeyStore,
     DisconnectReason,
     fetchLatestBaileysVersion,
     Browsers,
@@ -117,6 +118,20 @@ async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState(
     path.join(__dirname, config.sessionPath.replace("./", ""))
   );
+
+  // === OPTIMASI: cache signal-key di memory, jangan baca/tulis disk tiap pesan ===
+  // useMultiFileAuthState() bawaan Baileys nyimpen tiap signal-key (kunci enkripsi per sesi
+  // chat) sebagai FILE TERPISAH di folder session/. Tanpa dibungkus cache, Baileys baca file
+  // itu dari disk LAGI setiap kali ada pesan masuk/keluar yang perlu di-enkripsi/dekripsi --
+  // di device dengan storage lambat (HP/Termux, HDD, dst) ini nambah latency nyata di SETIAP
+  // pesan, bukan cuma pas command berat. makeCacheableSignalKeyStore() nyimpen key yang udah
+  // pernah dibaca di memory (in-memory cache di atas file store aslinya), jadi baca berikutnya
+  // buat key yang sama gak perlu balik ke disk lagi -- tulis ke disk tetap jalan seperti biasa
+  // (jadi kalau bot restart/crash, sesi login tetap aman/gak hilang), cuma BACA-nya yang di-cache.
+  const authState = {
+    creds: state.creds,
+    keys: makeCacheableSignalKeyStore(state.keys, logger),
+  };
   // === FIX buat error "405 Connection Failure" ===
   // Ini bug lagi di Baileys sendiri (dilaporkan banyak orang, per pertengahan 2026 belum ada
   // fix resmi): versi WhatsApp Web yang di-fetch OTOMATIS lewat fetchLatestBaileysVersion()
@@ -139,7 +154,7 @@ async function startBot() {
     version,
     logger,
     printQRInTerminal: false, // kita cetak QR manual pakai qrcode-terminal biar lebih rapi
-    auth: state,
+    auth: authState,
     browser: Browsers.ubuntu("Chrome"),
     generateHighQualityLinkPreview: true,
     // Default bawaan Baileys keburu abis buat beberapa query internal (misal fetchProps pas
