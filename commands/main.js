@@ -115,18 +115,47 @@ module.exports = [
       const users = getAllUsers();
       if (!users.length) return reply(`📂 *DATABASE ${config.botName.toUpperCase()}*\n\n📭 Belum ada user yang terdaftar.`);
 
-      let out = `╭─❍ 📂 *DATABASE ${config.botName.toUpperCase()}* ❍─╮\n│ 👥 Total User : ${users.length}\n╰────────────────────╯\n`;
-      for (const u of users) {
+      const header = `╭─❍ 📂 *DATABASE ${config.botName.toUpperCase()}* ❍─╮\n│ 👥 Total User : ${users.length}\n╰────────────────────╯\n`;
+
+      // === Pecah jadi beberapa pesan kalau kepanjangan ===
+      // SEBELUMNYA, semua user (berapa pun banyaknya) ditumpuk jadi SATU pesan gede tanpa batas.
+      // Ini oke buat puluhan user, tapi kalau bot udah dipakai ratusan/ribuan orang, satu pesan
+      // itu bisa jadi SANGAT panjang -- berisiko gagal terkirim / ditolak WhatsApp. Fix-nya BUKAN
+      // motong/ngilangin data (owner pasti mau lihat SEMUA user, bukan cuma sebagian), tapi PECAH
+      // jadi beberapa pesan berurutan (dikasih label "Bagian X/Y" biar jelas urutannya) -- data
+      // yang dikirim tetap 100% lengkap, cuma dibagi biar tiap pesan ukurannya aman.
+      const MAX_CHARS_PER_MSG = 3500; // jauh di bawah batas WA (~65rb), sengaja dikasih margin gede
+
+      const blocks = users.map((u) => {
         const statusIcon = u.active === false ? "🔴 nonaktif" : "🟢 aktif";
-        out +=
+        return (
           `┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄\n` +
           `🆔 ID        : ${u.id}\n` +
           `👤 Nama      : ${u.name}\n` +
           `📱 Nomor     : ${u.number}\n` +
           `🗓️ Terdaftar : ${formatTanggalWIB(u.registeredAt)}\n` +
-          `📶 Status    : ${statusIcon}\n`;
+          `📶 Status    : ${statusIcon}\n`
+        );
+      });
+
+      // Kelompokkan blok-blok user ke beberapa "halaman" (chunk) sesuai batas karakter
+      const chunks = [];
+      let current = "";
+      for (const block of blocks) {
+        if (current && (current.length + block.length) > MAX_CHARS_PER_MSG) {
+          chunks.push(current);
+          current = "";
+        }
+        current += block;
       }
-      reply(out);
+      if (current) chunks.push(current);
+
+      // Kirim berurutan: pesan pertama pakai header lengkap, sisanya cuma label halaman
+      for (let i = 0; i < chunks.length; i++) {
+        const pageLabel = chunks.length > 1 ? `\n📄 Bagian ${i + 1}/${chunks.length}\n` : "";
+        const body = i === 0 ? header + pageLabel + chunks[i] : `📄 *Bagian ${i + 1}/${chunks.length}*\n` + chunks[i];
+        await reply(body);
+      }
     },
   },
 
@@ -145,6 +174,7 @@ module.exports = [
         `│ 🌐 Internet   : ${INTERNET_MENU.length} fitur\n` +
         `│ 👥 Group      : ${GROUP_MENU.length} fitur\n` +
         `╰────────────────────╯\n\n` +
+        `📊 Total keseluruhan: *${totalFiturCount()} fitur*\n\n` +
         `📌 Ketik *${p}menu* buat lihat detail semua fitur per kategori.`
       );
     },

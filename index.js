@@ -156,7 +156,16 @@ async function startBot() {
     printQRInTerminal: false, // kita cetak QR manual pakai qrcode-terminal biar lebih rapi
     auth: authState,
     browser: Browsers.ubuntu("Chrome"),
-    generateHighQualityLinkPreview: true,
+    // Dimatiin (bukan bug, sengaja) -- fitur ini bikin Baileys manggil library `link-preview-js`
+    // buat ambil metadata (judul/gambar) dari URL yang mau dikirim, biar tampilannya jadi kartu
+    // preview bagus. Masalahnya, versi `link-preview-js` yang dipakai Baileys saat ini punya
+    // celah keamanan (bisa "ditipu" buat request ke alamat internal/loopback -- semacam SSRF)
+    // dan BELUM ADA PATCH resmi dari upstream-nya (dicek lewat `npm audit`). Daripada nunggu
+    // patch sambil fiturnya tetap aktif, lebih aman dimatiin dulu -- efeknya cuma link yang bot
+    // kirim gak nongol kartu preview bagus (judul+gambar), link-nya sendiri tetap normal terkirim
+    // & tetap bisa diklik seperti biasa. Kalau upstream udah rilis patch, tinggal balikin ke
+    // `true` lagi.
+    generateHighQualityLinkPreview: false,
     // Default bawaan Baileys keburu abis buat beberapa query internal (misal fetchProps pas
     // baru connect) kalau koneksinya agak lambat -- muncul sebagai "Timed Out (init queries)"
     // di log walau sebenarnya gak ngaruh ke fungsi bot (bot tetap connect & jalan normal).

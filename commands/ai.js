@@ -1,5 +1,5 @@
 const { askGemini } = require("../lib/gemini");
-const { clearHistory } = require("../lib/aiMemory");
+const { clearAllHistories } = require("../lib/aiMemory");
 const { isOwner } = require("../lib/owner");
 const { getQuotedText } = require("../lib/media");
 const config = require("../config");
@@ -49,10 +49,14 @@ module.exports = [
   {
     name: "resetai",
     aliases: ["clearai"],
-    run: async ({ jid, m, reply }) => {
-      const senderJid = m.key.participant || m.key.remoteJid;
-      clearHistory(`${jid}:${senderJid}`);
-      reply("Riwayat chat AI kamu di sini udah direset. Mulai obrolan baru!");
+    // Sebelumnya bisa dipakai siapa aja, cuma reset riwayat punya diri sendiri di chat itu.
+    // Sekarang OWNER ONLY, dan resetnya SEKALIGUS SEMUA ORANG (semua chat/grup) -- bukan lagi
+    // per-orang. Jadi ini command "bersih-bersih total" buat owner, bukan buat user umum reset
+    // punya sendiri lagi.
+    ownerOnly: true,
+    run: async ({ reply }) => {
+      const count = clearAllHistories();
+      reply(`✅ Riwayat chat AI SEMUA orang (${count} percakapan) udah direset total.`);
     },
   },
 ];

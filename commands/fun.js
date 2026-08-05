@@ -10,7 +10,6 @@ const {
   CARIPACAR_RESPONSES,
   TAUGASIH_FACTS,
   DREAMWORLD_LINES,
-  FUFUFAFA_RESPONSES,
 } = require("../lib/funData");
 const config = require("../config");
 const p = config.prefix;
@@ -73,14 +72,6 @@ module.exports = [
     run: async ({ text, reply }) => {
       const target = text || "kamu";
       reply(`🌙 *Dreamworld*\n${target}, ${pickRandom(DREAMWORLD_LINES)}`);
-    },
-  },
-
-  // fufufafa [Text?]
-  {
-    name: "fufufafa",
-    run: async ({ text, reply }) => {
-      reply(`${pickRandom(FUFUFAFA_RESPONSES)}${text ? `\n\n"${text}"` : ""}`);
     },
   },
 

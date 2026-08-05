@@ -10,6 +10,7 @@ const {
   TEBAKPRESIDEN,
   TEBAKPOKEMON,
   KUISISLAMI,
+  KUISKRISTEN,
   KUISMTK,
   TERASAURUS,
 } = require("../lib/gameData");
@@ -190,5 +191,6 @@ module.exports = [
 
   // --- Kuis edukasi (SMA kelas 12) ---
   tebakCommand("kuisislami", KUISISLAMI, { title: "🕌 Kuis Islami (SMA 12)", formatQuestion: (item) => item.q }),
+  tebakCommand("kuiskristen", KUISKRISTEN, { title: "✝️ Kuis Kristen (SMA 12)", formatQuestion: (item) => item.q }),
   tebakCommand("kuismtk", KUISMTK, { title: "📐 Kuis Matematika (SMA 12)", formatQuestion: (item) => item.q }),
 ];

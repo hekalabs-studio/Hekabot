@@ -20,8 +20,15 @@ module.exports = [
         const stickerBuf = await makeSticker(imageBuffer, { pack: config.botName, author: config.ownerName });
         await reply({ sticker: stickerBuf });
       } catch (error) {
+        // SEBELUMNYA: error ditangkep+dibales manual DI SINI tanpa dilempar ulang (`throw`).
+        // Efeknya, dari sudut pandang handler.js command ini keliatan "berhasil" -- react-nya ✅
+        // (bukan ❌) dan log timing-nya nyatet "selesai" (bukan "GAGAL"), padahal stikernya GAGAL
+        // dibuat. User emang tetap dikasih tau lewat pesan teks, tapi reaksi/log-nya nyesatin.
+        // Fix: lempar ulang errornya (bukan reply manual) -- biar react ❌ + log "GAGAL" +
+        // pesan errornya sendiri semua ditangani KONSISTEN sama satu tempat (catch umum di
+        // handler.js), sama kayak command lain yang error.
         console.error(error);
-        reply("Gagal membuat stiker brat.");
+        throw new Error("Gagal membuat stiker brat.");
       }
     },
   },
@@ -37,8 +44,9 @@ module.exports = [
         const stickerBuf = await makeSticker(videoBuffer, { pack: config.botName, author: config.ownerName });
         await reply({ sticker: stickerBuf });
       } catch (error) {
+        // Sama kayak fix di command "brat" di atas -- lempar ulang biar react/log konsisten.
         console.error(error);
-        reply("Gagal membuat stiker bratvid.");
+        throw new Error("Gagal membuat stiker bratvid.");
       }
     },
   },
@@ -74,8 +82,9 @@ module.exports = [
 
         await reply({ sticker: stickerBuf });
       } catch (error) {
+        // Sama kayak fix di command "brat" di atas -- lempar ulang biar react/log konsisten.
         console.error("Error pada command QC:", error);
-        reply("Gagal membuat stiker quote.");
+        throw new Error("Gagal membuat stiker quote.");
       }
     },
   },

@@ -47,7 +47,7 @@ module.exports = [
         `💧 Titik Embun    : ${weather.dewPoint}°F\n` +
         `🌅 Matahari Terbit: ${weather.sunrise}\n` +
         `🌇 Matahari Terbenam: ${weather.sunset}\n\n` +
-        `Data diolah secara real-time oleh AI.`
+        `_Sumber: Open-Meteo_`
       );
     },
   },

@@ -94,6 +94,7 @@ module.exports = [
   // 3. drivelink - download LANGSUNG dari Google Drive (bukan API pihak ketiga)
   {
     name: "drivelink",
+    heavy: true, // download file dari internet, buffer penuh ke RAM -- sama kelas resiko kayak command yt-dlp
     run: async ({ jid, sock, text, reply }) => {
       const link = (text.match(/https?:\/\/\S+/i) || [])[0];
       if (!link) return reply(`Kirim link Google Drive-nya.\nContoh: *${p}drivelink https://drive.google.com/...*`);
