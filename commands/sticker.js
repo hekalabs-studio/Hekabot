@@ -1,53 +1,95 @@
 const { makeSticker } = require("../lib/stickerMaker");
 const { makeQuoteCardV2, overlayMemeText, overlayQuoteBar, addWatermark } = require("../lib/textImage");
 const { makeBratImageAsync } = require("../lib/bratCanvasAsync");
+const { BRAT_COLORS } = require("../lib/bratCanvas");
 const { makeBratVideo } = require("../lib/bratvid");
 const { resolveMedia, getProfilePicture } = require("../lib/media");
 const config = require("../config");
 const p = config.prefix;
 
-module.exports = [
-  // brat [Text] - LOKAL (render @napi-rs/canvas, teks justify), otomatis jadi STICKER.
-  // Ketik "brat hijau <teks>" buat versi hijau neon.
-  {
-    name: "brat",
-    run: async ({ jid, sock, text, reply }) => {
-      if (!text) return reply(`Tulis teksnya.\nContoh: *${p}brat capek banget hari ini* (atau *${p}brat hijau capek banget* buat versi neon)`);
-      const neon = /^hijau\s+/i.test(text);
-      const cleanText = neon ? text.replace(/^hijau\s+/i, "") : text;
+/**
+ * Command generik buat .brat + 10 varian warnanya (.brathijau, .bratmerah, dst).
+ * SEBELUMNYA warna cuma bisa dipilih lewat "brat hijau <teks>" (spasi, cuma 1 warna: hijau).
+ * SEKARANG tiap warna jadi command TERSENDIRI tanpa spasi (.brathijau <teks>), dan ada
+ * 10 pilihan warna (bukan cuma hijau) -- lihat BRAT_COLORS di lib/bratCanvas.js.
+ */
+function makeBratCommand(name, bgColor) {
+  return {
+    name,
+    run: async ({ text, reply }) => {
+      if (!text) {
+        return reply(
+          `Tulis teksnya.\nContoh: *${p}${name} capek banget hari ini*\n\n` +
+          `🎨 Mau warna lain? Ketik *${p}listwarnabrat* buat lihat semua pilihan warna.`
+        );
+      }
       try {
-        const imageBuffer = await makeBratImageAsync(cleanText, { neon });
+        const imageBuffer = await makeBratImageAsync(text, { bgColor });
         const stickerBuf = await makeSticker(imageBuffer, { pack: config.botName, author: config.ownerName });
         await reply({ sticker: stickerBuf });
       } catch (error) {
-        // SEBELUMNYA: error ditangkep+dibales manual DI SINI tanpa dilempar ulang (`throw`).
-        // Efeknya, dari sudut pandang handler.js command ini keliatan "berhasil" -- react-nya ✅
-        // (bukan ❌) dan log timing-nya nyatet "selesai" (bukan "GAGAL"), padahal stikernya GAGAL
-        // dibuat. User emang tetap dikasih tau lewat pesan teks, tapi reaksi/log-nya nyesatin.
-        // Fix: lempar ulang errornya (bukan reply manual) -- biar react ❌ + log "GAGAL" +
-        // pesan errornya sendiri semua ditangani KONSISTEN sama satu tempat (catch umum di
-        // handler.js), sama kayak command lain yang error.
+        // Lempar ulang (bukan reply manual) -- biar react ❌ + log "GAGAL" ditangani konsisten
+        // sama catch umum di handler.js, sama kayak command lain yang error.
         console.error(error);
-        throw new Error("Gagal membuat stiker brat.");
+        throw new Error(`Gagal membuat stiker ${name}.`);
       }
     },
-  },
+  };
+}
 
-  // bratvid [Text] - LOKAL (render frame @napi-rs/canvas, teks justify + ffmpeg), otomatis jadi STICKER animasi.
-  {
-    name: "bratvid",
+/** Sama kayak makeBratCommand(), tapi buat versi video (.bratvid + 10 varian warnanya). */
+function makeBratVidCommand(name, bgColor) {
+  return {
+    name,
     heavy: true, // render frame per-frame pakai canvas + rakit video pakai ffmpeg, berat
-    run: async ({ jid, sock, text, reply }) => {
-      if (!text) return reply(`Tulis teksnya.\nContoh: *${p}bratvid capek banget hari ini*`);
+    run: async ({ text, reply }) => {
+      if (!text) {
+        return reply(
+          `Tulis teksnya.\nContoh: *${p}${name} capek banget hari ini*\n\n` +
+          `🎨 Mau warna lain? Ketik *${p}listwarnabrat* buat lihat semua pilihan warna.`
+        );
+      }
       try {
-        const videoBuffer = await makeBratVideo(text);
+        const videoBuffer = await makeBratVideo(text, { bgColor });
         const stickerBuf = await makeSticker(videoBuffer, { pack: config.botName, author: config.ownerName });
         await reply({ sticker: stickerBuf });
       } catch (error) {
-        // Sama kayak fix di command "brat" di atas -- lempar ulang biar react/log konsisten.
         console.error(error);
-        throw new Error("Gagal membuat stiker bratvid.");
+        throw new Error(`Gagal membuat stiker ${name}.`);
       }
+    },
+  };
+}
+
+const bratColorCommands = Object.entries(BRAT_COLORS).map(([warna, hex]) => makeBratCommand(`brat${warna}`, hex));
+const bratVidColorCommands = Object.entries(BRAT_COLORS).map(([warna, hex]) => makeBratVidCommand(`bratvid${warna}`, hex));
+
+module.exports = [
+  // brat [Text] - LOKAL (render @napi-rs/canvas, teks justify), otomatis jadi STICKER. Putih (default).
+  makeBratCommand("brat", "#FFFFFF"),
+  // 10 varian warna: brathijau, bratmerah, bratbiru, bratkuning, bratpink, bratungu,
+  // bratoranye, brattosca, bratabuabu, bratcoklat
+  ...bratColorCommands,
+
+  // bratvid [Text] - LOKAL (render frame @napi-rs/canvas, teks justify + ffmpeg), otomatis jadi STICKER animasi. Putih (default).
+  makeBratVidCommand("bratvid", "#FFFFFF"),
+  // 10 varian warna: bratvidhijau, bratvidmerah, dst (sama kayak di atas, versi video)
+  ...bratVidColorCommands,
+
+  // listwarnabrat - daftar semua warna yang bisa dipakai buat .brat<warna>/.bratvid<warna>
+  {
+    name: "listwarnabrat",
+    aliases: ["warnabrat"],
+    run: async ({ reply }) => {
+      const list = Object.keys(BRAT_COLORS)
+        .map((warna) => `   • *${p}brat${warna}* / *${p}bratvid${warna}*`)
+        .join("\n");
+      reply(
+        `🎨 *Pilihan Warna Brat*\n\n` +
+        `Default (putih): *${p}brat* / *${p}bratvid*\n\n` +
+        `${list}\n\n` +
+        `_Contoh: *${p}bratmerah capek banget hari ini*_`
+      );
     },
   },
 

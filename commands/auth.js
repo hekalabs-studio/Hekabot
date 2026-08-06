@@ -1,7 +1,28 @@
 const { isRegistered, getUser, registerUser, unregisterUser, deleteUserById } = require("../lib/userStore");
+const { getStats, getTotalWins } = require("../lib/gameStats");
 const { isOwner } = require("../lib/owner");
 const config = require("../config");
 const p = config.prefix;
+
+// Daftar SEMUA game yang bisa dimenangin + nama tampilan & emoji-nya buat di .profile --
+// key-nya harus SAMA PERSIS kayak `gameName`/nama command yang dipakai pas recordWin()
+// dipanggil (lihat handler.js buat game tebak-tebakan, commands/game.js buat minesweeper
+// & ulartangga), biar nyambung ke jumlah kemenangan yang bener.
+const GAME_LIST = [
+  ["asahotak", "🧠 Asah Otak"],
+  ["tebaktebakan", "😂 Tebak-tebakan"],
+  ["tebakbendera", "🚩 Tebak Bendera"],
+  ["tebakkata", "🔤 Tebak Kata"],
+  ["tebakpresiden", "🇮🇩 Tebak Presiden"],
+  ["tebakpokemon", "⚡ Tebak Pokemon"],
+  ["susunkata", "🔠 Susun Kata"],
+  ["terasaurus", "🧩 Terasaurus"],
+  ["minesweeper", "💣 Minesweeper"],
+  ["ulartangga", "🎲 Ular Tangga"],
+  ["kuisislami", "🕌 Kuis Islami"],
+  ["kuiskristen", "✝️ Kuis Kristen"],
+  ["kuismtk", "📐 Kuis Matematika"],
+];
 
 function senderJidOf(m) {
   return m.key.participant || m.key.remoteJid;
@@ -30,9 +51,15 @@ module.exports = [
       const user = getUser(jid);
       if (!user) return reply(`Kamu belum terdaftar. Ketik *${p}daftar Nama Kamu* dulu.`);
       const tgl = new Date(user.registeredAt).toLocaleString("id-ID");
+
+      const stats = getStats(jid);
+      const totalWins = getTotalWins(jid);
+      const gameLines = GAME_LIST.map(([key, label]) => `   ${label}: *${stats[key] || 0}*`).join("\n");
+
       reply(
         `👤 *Profil Kamu*\nID: ${user.id}\nNama: ${user.name}\nNomor: ${user.number}\n` +
-        `Status: ${user.active === false ? "nonaktif" : "aktif"}\nTerdaftar sejak: ${tgl}`
+        `Status: ${user.active === false ? "nonaktif" : "aktif"}\nTerdaftar sejak: ${tgl}\n\n` +
+        `🏆 *Statistik Kemenangan Game* (total: *${totalWins}*)\n${gameLines}`
       );
     },
   },

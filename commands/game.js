@@ -14,7 +14,8 @@ const {
   KUISMTK,
   TERASAURUS,
 } = require("../lib/gameData");
-const { boards, generateBoard, reveal, checkWin, renderBoard, parseCoord } = require("../lib/minesweeper");
+const { boards, generateBoard, reveal, toggleFlag, checkWin, renderBoard, parseCoord, DIFFICULTIES } = require("../lib/minesweeper");
+const { recordWin } = require("../lib/gameStats");
 
 const TIMEOUT_MS = 45000;
 
@@ -26,6 +27,7 @@ function tebakCommand(name, bank, { title, formatQuestion } = {}) {
       const item = bank[Math.floor(Math.random() * bank.length)];
       startSession(jid, {
         answer: item.a,
+        gameName: name,
         timeoutMs: TIMEOUT_MS,
         onTimeout: () => reply({ text: `⏰ Waktu habis! Jawabannya: *${item.a}*` }),
       });
@@ -78,6 +80,7 @@ module.exports = [
       const scrambled = shuffleWord(word);
       startSession(jid, {
         answer: word,
+        gameName: "susunkata",
         timeoutMs: TIMEOUT_MS,
         onTimeout: () => reply({ text: `⏰ Waktu habis! Jawabannya: *${word}*` }),
       });
@@ -119,6 +122,7 @@ module.exports = [
 
       startSession(jid, {
         answer: correct,
+        gameName: "terasaurus",
         timeoutMs: TIMEOUT_MS,
         onTimeout: () => reply({ text: `⏰ Waktu habis! Jawabannya: *${correct}*` }),
       });
@@ -128,18 +132,48 @@ module.exports = [
     },
   },
 
-  // minesweeper [Text] - ".minesweeper" mulai, ".minesweeper B3" buka petak
+  // minesweeper [Text] - ".minesweeper" atau ".minesweeper mudah/sedang/sulit" mulai,
+  // ".minesweeper B3" buka petak, ".minesweeper flag B3" tandai/hapus tanda ranjau
   {
     name: "minesweeper",
     aliases: ["ms"],
-    run: async ({ jid, text, reply }) => {
-      if (!text || /^(mulai|start|new|reset)$/i.test(text)) {
-        const board = generateBoard(5, 4);
+    run: async ({ jid, m, text, reply }) => {
+      const input = (text || "").trim().toLowerCase();
+
+      // Mulai game baru -- boleh sambil pilih level (default "mudah" kalau gak dipilih)
+      if (!input || ["mulai", "start", "new", "reset", ...Object.keys(DIFFICULTIES)].includes(input)) {
+        const levelName = DIFFICULTIES[input] ? input : "mudah";
+        const { size, mines } = DIFFICULTIES[levelName];
+        const board = generateBoard(size, mines);
         boards.set(jid, board);
-        return reply(`💣 *Minesweeper* dimulai! Grid 5x5, 4 ranjau tersembunyi.\n\nKetik *${p}minesweeper A5* (kolom+baris) buat buka petak.\n\n${renderBoard(board)}`);
+        return reply(
+          `💣 *Minesweeper* (level: *${levelName}*) dimulai! Grid ${size}x${size}, ${mines} ranjau tersembunyi.\n\n` +
+          `Ketik *${p}minesweeper A5* (kolom+baris) buat buka petak.\n` +
+          `Ketik *${p}minesweeper flag A5* buat tandai/hapus tanda petak yang dicurigai ranjau.\n` +
+          `Ganti level: *${p}minesweeper mudah/sedang/sulit*\n\n${renderBoard(board)}`
+        );
       }
+
       const board = boards.get(jid);
-      if (!board) return reply(`Belum ada game aktif. Ketik *${p}minesweeper* buat mulai.`);
+      if (!board) {
+        return reply(
+          `Belum ada game aktif. Ketik *${p}minesweeper* buat mulai (default: mudah), ` +
+          `atau pilih level: *${p}minesweeper mudah/sedang/sulit*.`
+        );
+      }
+
+      // Mode flag: ".minesweeper flag A5"
+      const flagMatch = input.match(/^(flag|tandai|f)\s+(.+)$/);
+      if (flagMatch) {
+        const coord = parseCoord(flagMatch[2]);
+        if (!coord || coord.row < 0 || coord.row >= board.size || coord.col < 0 || coord.col >= board.size) {
+          return reply(`Format koordinat salah. Contoh: *${p}minesweeper flag B3*`);
+        }
+        const flagged = toggleFlag(board, coord.row, coord.col);
+        if (flagged === null) return reply("Petak itu udah kebuka, gak bisa di-flag lagi.");
+        return reply(`${flagged ? "🚩 Ditandai" : "◽ Tanda dihapus"} di ${flagMatch[2].toUpperCase()}.\n\n${renderBoard(board)}`);
+      }
+
       const coord = parseCoord(text);
       if (!coord || coord.row < 0 || coord.row >= board.size || coord.col < 0 || coord.col >= board.size) {
         return reply(`Format koordinat salah. Contoh: *${p}minesweeper B3*`);
@@ -151,6 +185,7 @@ module.exports = [
       }
       if (checkWin(board)) {
         boards.delete(jid);
+        recordWin(m.key.participant || m.key.remoteJid, "minesweeper");
         return reply(`🎉 Menang! Semua petak aman berhasil dibuka.\n\n${renderBoard(board, true)}`);
       }
       reply(renderBoard(board));
@@ -160,7 +195,7 @@ module.exports = [
   // ulartangga [Text] - ".ulartangga" mulai, ".ulartangga roll" lempar dadu
   {
     name: "ulartangga",
-    run: async ({ jid, text, reply }) => {
+    run: async ({ jid, m, text, reply }) => {
       const cmd = (text || "").trim().toLowerCase();
       if (!ulartanggaPlayers.has(jid) || ["mulai", "start", "reset"].includes(cmd)) {
         ulartanggaPlayers.set(jid, { pos: 0 });
@@ -182,6 +217,7 @@ module.exports = [
       }
       if (pos >= 30) {
         ulartanggaPlayers.delete(jid);
+        recordWin(m.key.participant || m.key.remoteJid, "ulartangga");
         return reply(`🎲 Dadu: ${dice}. Posisi: 30/30.${note}\n\n🏆 SELAMAT! Kamu menang!`);
       }
       player.pos = pos;

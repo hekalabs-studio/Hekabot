@@ -3,6 +3,7 @@ const { buildMenu, buildCategoryMenu, resolveMenuAlias } = require("./lib/menu")
 const { buildHelpText } = require("./lib/help");
 const { getText } = require("./lib/media");
 const { getSession, checkAnswer, endSession } = require("./lib/gameSession");
+const { recordWin } = require("./lib/gameStats");
 const { getBannerPath } = require("./lib/banner");
 const downloaderCommands = require("./commands/downloader");
 const toolsCommands = require("./commands/tools");
@@ -240,6 +241,7 @@ async function handleMessage(sock, m) {
     const result = checkAnswer(jid, text);
     if (result?.correct) {
       endSession(jid);
+      if (activeSession.gameName) recordWin(senderJid, activeSession.gameName);
       return reply(`✅ Benar! Jawabannya *${activeSession.answer}*`);
     }
     return; // jawaban salah, diemin aja biar gak spam chat
